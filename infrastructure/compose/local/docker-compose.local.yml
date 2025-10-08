@@ -1,0 +1,11 @@
+services:
+  minio:
+    ports: ["9000:9000", "9001:9001"]
+
+  gotenberg:
+    ports: ["3000:3000"]
+
+  postgres:
+    ports: ["15432:5432"]
+
+

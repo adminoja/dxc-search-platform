@@ -1,0 +1,176 @@
+# src/main/resources/application-sit.yml
+server:
+  port: 8081
+  forward-headers-strategy: framework
+  compression:
+    enabled: true
+    mime-types: application/json,text/html,text/plain,text/css,application/javascript,image/svg+xml
+
+spring:
+  main:
+    web-application-type: reactive
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+
+  # ✅ Resource Server (validate JWT from RH SSO / Keycloak)
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # issuer-uri: https://sso.dxc.go.th/auth/realms/DXC
+          # If issuer discovery ever mismatches behind reverse proxy, comment issuer-uri and use:
+          jwk-set-uri: https://sso.dxc.go.th/auth/realms/DXC/protocol/openid-connect/certs
+          
+
+  # 🔌 No remote Config for SIT unless you really use it
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+    discovery:
+      enabled: true
+    loadbalancer:
+      enabled: true
+    # ❌ Removed gateway-specific config; search-platform is not the gateway
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    # No oauth2Login here; use a pasted Bearer token if needed
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# CORS used by your CorsConfig/CorsProperties
+cors:
+  allowed-origins:
+    - https://search-ui.sit.dxc.go.th
+  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-headers: Authorization,Content-Type,X-Requested-With,Accept,Origin,User-Agent
+  allow-credentials: false
+  max-age: 10m
+
+# ================== PLATFORM SETTINGS ==================
+platform:
+  catalog:
+    organizations:
+      - id: dop
+        name: Department of Probation
+        description: Ministry of Justice
+      - id: djop
+        name: Department of Juvenile Observation and Protection
+        description: Ministry of Justice
+    datasets:
+      - id: dop.probationers
+        name: Probationers
+        description: List of all probationers under the supervision of Department of Probation
+        owner-org-id: dop
+        route:
+          service-id: dxc-qm-dop-probationer-service
+          path: /api/v2/dop/probationers
+        mapping:
+          search-fields: [ "citizen_id","full_name" ]
+          summary-fields: [ "citizen_id", "full_name", "address.province", "probation_no" ]
+          natural-key-fields: [ "citizen_id" ]
+
+      - id: linkage.person
+        name: Dopa Person
+        description: List of all juvenile offenders under the supervision of Department of Juvenile Observation and Protection
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-moi-linkage-service
+          path: /api/v2/moi-linkage/persons/{citizen_id}/moi-dopa-persons
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+        mapping:
+          search-fields: [ "citizen_id" ]
+          summary-fields: [ "citizen_id", "full_name" ]
+          natural-key-fields: [ "citizen_id" ]
+  search:
+    cache:
+      ttl:
+        detail-ttl: PT30M
+  report:
+    gotenberg:
+      base-url: http://localhost:3000
+    minio:
+      endpoint: http://localhost:9000
+    templates:
+      location: classpath:report-templates   # or file:/opt/dxc/templates
+      cache-seconds: 0                       # dev: hot reload; prod: >0
+      assets:
+        - report.css
+        - fonts/NotoSansThai-Regular.ttf
+        - fonts/NotoSansThai-Bold.ttf
+    verify:
+      endpoint-path: /verify
+      token-ttl-minutes: 1440
+      qr: { size: 240 }
+      barcode: { enabled: true }
+  audit:
+    redactor:
+      key-id: dev                               # allows rotation later
+      hmac-key-b64: ZGV2LWRvLW5vdC11c2UtdGhpcy1pbi1wcm9kLSE=      # 32-byte random, Base64
+      output: hex                              # hex | base64
+  router:
+    connect-timeout: PT2S
+    read-timeout: PT5S
+    write-timeout: PT5S
+    retry:
+      enabled: true
+      max-attempts: 2
+    page-param-map:
+      page: page
+      size: size
+      sort: sort
+  pdf:
+    mode: external
+    # If sticking with PDFreactor in SIT:
+    base-url: http://pdfreactor.sit.dxc:9423
+    # Or a cost-free engine (Gotenberg) if you pilot that:
+    # base-url: http://gotenberg.sit.dxc:3000
+    storage:
+      bucket: reports
+      signed-url-ttl: PT15M
+  security:
+    hmac-secret-b64: "ZGV2LWRvLW5vdC11c2UtdGhpcy1pbi1wcm9kLSE="
+    scope-version: "v1"
+
+# ================== EUREKA (SERVICE DISCOVERY) ==================
+eureka:
+  client:
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
+    serviceUrl:
+      defaultZone: >
+        http://cloud-registry-01.ad.thaidxc.org:8761/eureka/,
+        http://cloud-registry-02.ad.thaidxc.org:8761/eureka/
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+
+
+logging:
+  level:
+    th.go.dxc.platform.search: DEBUG
+    org.springframework.security: WARN
+    reactor.netty.http.client: WARN
+    com.netflix.discovery.shared.resolver.aws.ConfigClusterResolver: WARN
+    com.netflix.discovery: WARN
+    org.springframework.security.oauth2.jwt: WARN

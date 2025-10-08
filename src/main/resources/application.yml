@@ -1,0 +1,56 @@
+spring.application.name: dxc-search-platform
+server:
+  port: 8080
+  forward-headers-strategy: framework  # if behind reverse proxy
+
+springdoc:
+  swagger-ui:
+    enabled: true
+  api-docs:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  security:
+    # Keep CSRF on UI; ignore API (stateless JWT)
+    csrf-ignore-paths: ["/api/"]
+    cookies:
+      same-site: Lax
+      secure: false
+    swagger:
+      enabled: true
+      roles: ["admin","dev"]   # (not enforced above, but keep for future)
+  cors:
+    paths: ["/api/**"]
+    allowed-origins: []        # override per profile
+    allowed-methods: ["GET","POST"]
+    allowed-headers: ["Authorization","Content-Type","X-XSRF-TOKEN"]
+    exposed-headers: ["Content-Disposition"]
+    allow-credentials: false
+    max-age: 10m
+
+platform:
+  report:
+    templates:
+      # where <dataset-id>.html lives (mounted volume)
+      filesystem-root: /opt/dxc/templates
+      cache-seconds: 300
+
+    gotenberg:
+      # inside Docker network use http://gotenberg:3000
+      # on local dev (app outside Docker) use http://localhost:3000
+      base-url: http://gotenberg:3000
+      endpoint: /forms/chromium/convert/html
+      timeout-ms: 20000
+
+    minio:
+      endpoint: http://minio:9000
+      access-key: miniominiouser
+      secret-key: miniominiosecret
+      bucket: dxc-reports
+      presign-seconds: 300

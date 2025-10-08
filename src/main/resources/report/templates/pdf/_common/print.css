@@ -1,0 +1,127 @@
+/* ---- Fonts for OFFLINE preview (Gotenberg uses embedded data-URL fonts from use case) ---- */
+@font-face{
+  font-family:'TH Sarabun New';
+  font-style:normal; font-weight:400; font-display:swap;
+  src:url('../_common/fonts/thsarabunnew/THSarabunNew.woff2') format('woff2');
+}
+@font-face{
+  font-family:'TH Sarabun New';
+  font-style:normal; font-weight:700; font-display:swap;
+  src:url('../_common/fonts/thsarabunnew/THSarabunNew Bold.woff2') format('woff2');
+}
+@font-face{
+  font-family:'TH Sarabun New';
+  font-style:italic; font-weight:400; font-display:swap;
+  src:url('../_common/fonts/thsarabunnew/THSarabunNew Italic.woff2') format('woff2');
+}
+@font-face{
+  font-family:'TH Sarabun New';
+  font-style:italic; font-weight:700; font-display:swap;
+  src:url('../_common/fonts/thsarabunnew/THSarabunNew BoldItalic.woff2') format('woff2');
+}
+
+/* ---- Base (A4-friendly) ---- */
+html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body{
+  font-family: "TH Sarabun New","THSarabunNew","Sarabun","Noto Sans Thai","Tahoma",sans-serif;
+  font-size: 16pt; line-height: 1.0;
+  color:#111827; background:#fff;
+  margin:0; padding:24pt; /* screen preview only; disabled in print */
+}
+
+/* ---------- Brand sizing knobs ---------- */
+:root{
+  --brand-org-size: 18pt;
+  --brand-site-size: 12.5pt;
+  --logo-h-screen: 36pt;
+  --logo-h-print:  36pt;
+}
+
+/* ---- Header (logo + brand) ---- */
+.header{
+  display:flex; align-items:center; gap:14pt;
+  padding-bottom:8pt; margin-bottom:10pt;
+  border-bottom:1px solid #d1d5db;
+}
+.brand{ display:flex; align-items:center; gap:10pt; }
+.logo-img{ height: var(--logo-h-screen); width:auto; display:block; transform: translateY(1px); }
+.brand .org{ font-weight:700; font-size: var(--brand-org-size); line-height:1.05; }
+.brand .site{ font-size: var(--brand-site-size); line-height:1.1; color:#4b5563; opacity:.85; }
+.brand a{ color:#111827; text-decoration:none; }
+.brand a:hover{ text-decoration:underline; }
+
+@media print{
+  .logo-img{ height: var(--logo-h-print); }
+}
+
+/* ---- Centered title with background ---- */
+.title-bar{
+  text-align:center; font-weight:700;
+  background:#f3f4f6; border:1px solid #e5e7eb; border-radius:6px;
+  padding:6pt 8pt; margin:8pt 0 12pt;
+  font-size: 20pt;
+  line-height: 1.15;
+}
+
+/* ---- One-column key/value (summary) ---- */
+.kv1{ width:100%; border-collapse:collapse; table-layout:fixed; line-height:1.25; }
+.kv1 th,.kv1 td{ border:1px solid #e5e7eb; padding:6pt 8pt; vertical-align:top; }
+.kv1 th{ background:#f9fafb; font-weight:700; }
+
+/* ---- Two-column key/value (detail sections) ---- */
+.kv2{ width:100%; border-collapse:collapse; table-layout:fixed; line-height:1.25; }
+.kv2 th,.kv2 td{ border:1px solid #e5e7eb; padding:6pt 8pt; vertical-align:top; }
+.kv2 th{ width:22%; background:#f9fafb; font-weight:700; }
+
+/* ---- Summary with QR on the right ---- */
+.summary-with-qr{
+  display:grid;
+  grid-template-columns: 1fr 150px; /* table | qr-card */
+  gap:10pt; align-items:start;
+  margin:8pt 0 12pt;
+}
+.summary-with-qr.no-qr{ grid-template-columns: 1fr; }
+
+.qr-card{
+  text-align:right; background:#fff;
+  border:1px solid #e5e7eb; border-radius:6px; padding:6pt;
+}
+.qr-card .qr{ width:120px; height:120px; display:inline-block; }
+.qr-note{ font-size:9.5pt; color:#6b7280; margin-top:3pt; }
+
+@media print{
+  .summary-with-qr{ page-break-inside: avoid; }
+}
+
+/* ---- Sections ---- */
+.section{ margin-top:12pt; }
+.section-title{ font-weight:700; margin-bottom:6pt; }
+
+/* ---- Footer ---- */
+.print-meta{
+  display:flex; justify-content:space-between; align-items:center; gap:10pt;
+  font-size:10pt; background:#fff;
+  border-top:1px solid #d1d5db; padding-top:6pt;
+}
+.print-meta .left{ display:flex; align-items:flex-end; gap:8pt; }
+.who{ line-height:1.2; font-size:10pt; }
+
+/* ---- Watermark ---- */
+.wm{ position:fixed; inset:0; z-index:-1; opacity:.06; pointer-events:none; }
+
+/* ---- PRINT: reserve space and pin footer (on every page) ---- */
+@page{ size:A4; margin:16mm 14mm 26mm 14mm; } /* bottom >= footer height+spacing */
+
+@media print{
+  body{ padding:0; }
+  .wm{ opacity:.05; }
+  .print-meta{
+    position:fixed; left:14mm; right:14mm; bottom:10mm; z-index:10; background:#fff;
+  }
+}
+
+/* ---- SCREEN: push footer to bottom of viewport ---- */
+@media screen{
+  .content{ display:flex; flex-direction:column; min-height:100vh; }
+  .print-meta{ margin-top:auto; }
+}

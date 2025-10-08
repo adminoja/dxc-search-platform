@@ -1,0 +1,104 @@
+# src/main/resources/application-dev.yml
+server:
+  port: 8080
+
+spring:
+  # 🔌 Disable Spring Cloud Config (don’t pull remote config)
+  cloud:
+    config:
+      import-check.enabled: false
+      enabled: false
+    discovery:
+      enabled: false
+    loadbalancer:
+      enabled: false
+    gateway:
+      server:
+        webflux:
+          enabled: false
+
+  # 🗄️ Local, no-db-hassle: use H2 in-memory (or set 'flyway.enabled: false' if you keep Postgres)
+  datasource:
+    url: jdbc:h2:mem:dxc;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  flyway:
+    enabled: false
+
+  # 🔐 Security: don’t wire OAuth2 resource server in dev
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ""   # leave empty so RS auto-config won’t activate
+
+# 🧭 Disable Eureka client
+eureka:
+  client:
+    enabled: false
+
+# 📊 Actuator relaxed for dev
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
+
+app:
+  security:
+    cookies:
+      same-site: Lax
+      secure: false
+  cors:
+    paths: ["/api/**", "/v3/api-docs/**"]
+    allowed-origins:
+      - "http://localhost:8080"
+      - "http://127.0.0.1:8080"
+    allowed-methods: ["GET","POST","PUT","DELETE","PATCH","OPTIONS"]
+    allow-credentials: false
+
+platform:
+  catalog:
+    organizations:
+      - id: dop
+        name: Department of Probation
+        description: Ministry of Justice
+      - id: djop
+        name: Department of Juvenile Observation and Protection
+        description: Ministry of Justice
+    datasets:
+      - id: dop.probationers
+        name: Probationers
+        description: List of all probationers under the supervision of Department of Probation
+        owner-org-id: dop
+        route:
+          service-id: dxc-qm-dop-probation-service
+          path: /api/v2/dop/probationers
+        mapping:
+          search-fields: [ "citizen_id","full_name" ]
+          summary-fields: [ "citizen_id", "full_name", "address.province", "probation_no" ]
+          natural-key-fields: [ "citizen_id" ]
+      - id: djop.juvenile-offenders
+        name: Juvenile Offenders
+        description: List of all juvenile offenders under the supervision of Department of Juvenile Observation and Protection
+        owner-org-id: djop
+        route:
+          service-id: dxc-qm-djop-juvenile-service
+          path: /api/v2/djop/juvenile-offenders
+        mapping:
+          search-fields: [ "citizen_id","full_name" ]
+          summary-fields: [ "citizen_id", "full_name", "address.province", "probation_no" ]
+          natural-key-fields: [ "citizen_id" ]
+  search:
+    cache:
+      ttl:
+        detail-ttl: PT30M
+  report:
+    gotenberg:
+      base-url: http://localhost:3000
+    minio:
+      endpoint: http://localhost:9000
