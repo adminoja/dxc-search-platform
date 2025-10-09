@@ -18,7 +18,7 @@ import th.go.dxc.platform.search.application.report.port.in.RenderHtmlReportUseC
 import th.go.dxc.platform.search.domain.common.value.UserContext;
 
 @RestController
-@RequestMapping("/report")
+@RequestMapping("/api/reports")
 public class ReportHtmlController {
 
   private final RenderHtmlReportUseCase useCase;
@@ -34,7 +34,7 @@ public class ReportHtmlController {
                                            @AuthenticationPrincipal @NonNull UserContext user) {
     final String scopeHash = scopeHasher.scopeFor(user.userId(), user.tenantId(), user.realm());
 
-    return useCase.execute(new RenderHtmlReportUseCase.Input(scopeHash, new ReportToken(token)))
+    return useCase.execute(new RenderHtmlReportUseCase.Input(scopeHash, new ReportToken(token),user))
         .map(out -> ResponseEntity.ok()
             .contentType(new MediaType("text", "html", StandardCharsets.UTF_8))
             .body(out.html()))

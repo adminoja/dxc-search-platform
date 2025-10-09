@@ -1,16 +1,53 @@
-<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
-<style>
-  body{margin:0;font-family:"TH Sarabun New","Sarabun","Noto Sans Thai","Tahoma",sans-serif;font-size:10pt;color:#334155}
-  .header{display:flex;align-items:center;justify-content:space-between;padding:6pt 10pt;border-bottom:1px solid #e5e7eb}
-  .brand{display:flex;align-items:center;gap:8pt}
-  .logo{height:14pt}
-  a{color:#334155;text-decoration:none} a:hover{text-decoration:underline}
-</style></head><body>
-  <div class="header">
-    <div class="brand">
-      <img class="logo" src="[[${inlineLogo}]]" alt="DXC"/>
-      <div><strong><a href="https://www.dxc.go.th" target="_blank" rel="noopener">Data Exchange Center</a></strong></div>
-    </div>
-    <div class="right"><span class="date"></span></div>
-  </div>
-</body></html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      box-sizing: border-box;
+      padding: 0 12mm;
+      /* match marginLeft/Right */
+      font-family: "TH Sarabun New", "Sarabun", sans-serif;
+      font-size: 10pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    td {
+      padding-top: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <table role="presentation">
+    <tr>
+      <td style="padding:0;vertical-align:middle;width:44pt;">
+        <img alt="DXC" src="data:image/svg+xml;base64,{{LOGO_BASE64}}"
+          style="height:28pt;display:block;max-width:100%;">
+      </td>
+      <td style="padding:0;width:8pt;"></td>
+      <td style="padding:0;vertical-align:middle;">
+        <div style="font-weight:700;font-size:14pt;line-height:1.15;">Data Exchange Center</div>
+        <div style="font-size:10pt;line-height:1.1;color:#6b7280;">www.dxc.go.th</div>
+      </td>
+      <td style="text-align:right; white-space:nowrap;">
+        <div style="font-weight:700;font-size:10pt;line-height:1.15;text-align:right;">ผู้พิมพ์ {{PRINTED_BY}}</div>
+        <div style="font-size:10pt;line-height:1.1;color:#6b7280;text-align:right;">{{PRINTED_DATE_TIME}}</div>
+      </td>
+    </tr>
+  </table>
+</body>
+
+</html>

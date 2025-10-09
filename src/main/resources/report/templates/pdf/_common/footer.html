@@ -1,7 +1,30 @@
-<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
-<style>body{margin:0;font-family:"Sarabun","Noto Sans Thai","Tahoma",sans-serif;font-size:9pt;color:#475569}
-.footer{display:flex;align-items:center;justify-content:space-between;padding:6pt 10pt;border-top:1px solid #e5e7eb}
-.muted{opacity:.85}</style></head><body>
-<div class="footer"><div class="muted">www.dxc.go.th</div>
-<div class="muted">หน้า <span class="pageNumber"></span>/<span class="totalPages"></span></div></div>
-</body></html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    html, body { margin:0; padding:0; }
+    body{
+      box-sizing:border-box;
+      padding:0 12mm;                 /* match marginLeft/Right */
+      font-family:"TH Sarabun New","Sarabun",sans-serif;
+      font-size:10pt;
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
+    }
+    table{ width:100%; border-collapse:collapse; }
+    td{ padding-top:0; }
+  </style>
+</head>
+<body>
+  <table role="presentation">
+    <tr>
+      <td>
+        <span class="title"></span> 
+      </td>
+      <td style="text-align:right; white-space:nowrap;">
+        หน้า <span class="pageNumber"></span> / <span class="totalPages"></span>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

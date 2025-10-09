@@ -22,39 +22,39 @@ public class DebugJwtConfig {
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE) // run before Spring Security
     public WebFilter jwtPeek() {
-        log.debug("jwtPeek");
+        log.trace("jwtPeek");
         return (exchange, chain) -> {
             String auth = exchange.getRequest().getHeaders().getFirst("Authorization");
             if (auth != null && auth.startsWith("Bearer ")) {
-                log.debug("Bearer detected");
+                log.trace("Bearer detected");
                 String t = auth.substring(7).trim();
                 String[] p = t.split("\\.");
                 if (p.length != 3) {
-                    log.debug("Token parts != 3 (got {})", p.length);
+                    log.trace("Token parts != 3 (got {})", p.length);
                 } else {
                     try {
-                        log.debug("p.length = 3");
+                        log.trace("p.length = 3");
                         // base64url → base64 padding
                         String payload = p[1] + "=".repeat((4 - p[1].length() % 4) % 4);
                         byte[] pl = Base64.getUrlDecoder().decode(payload);
                         char first = (char) pl[0];
-                        log.debug("JWT ok: parts=3, payloadLen={}, firstChar='{}' (expect '{{')", pl.length, first);
+                        log.trace("JWT ok: parts=3, payloadLen={}, firstChar='{}' (expect '{{')", pl.length, first);
 
                         try {
                             String json = new String(pl, StandardCharsets.UTF_8);
-                            log.debug("JSON={}",json);
+                            log.trace("JSON={}",json);
                             JSONObjectUtils.parse(json); // if this passes, payload JSON is valid
-                            log.debug("Nimbus JSON parse: OK");
+                            log.trace("Nimbus JSON parse: OK");
                         } catch (Exception e) {
-                            log.debug("Nimbus JSON parse: FAIL -> {}", e.toString());
+                            log.trace("Nimbus JSON parse: FAIL -> {}", e.toString());
                         }
 
                     } catch (Exception e) {
-                        log.debug("JWT payload decode failed: {}", e.toString());
+                        log.trace("JWT payload decode failed: {}", e.toString());
                     }
                 }
             } else {
-                log.debug("bearer not detected");
+                log.trace("bearer not detected");
             }
             return chain.filter(exchange);
         };

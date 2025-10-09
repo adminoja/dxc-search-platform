@@ -1,10 +1,10 @@
 package th.go.dxc.platform.search.config;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.validation.annotation.Validated;
-
 import java.time.Duration;
 import java.util.List;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 @Validated
 @ConfigurationProperties(prefix = "platform.report")
@@ -12,7 +12,8 @@ public record ReportProperties(
     Templates templates,
     Gotenberg gotenberg,
     Minio minio,
-    Snapshot snapshot
+    Snapshot snapshot,
+    Signing sign  
 ) {
   public ReportProperties {
     if (templates == null) {
@@ -23,7 +24,7 @@ public record ReportProperties(
               "fonts/NotoSansThai-Bold.ttf"
           ));
     }
-    if (gotenberg == null) gotenberg = new Gotenberg("http://gotenberg:3000", "/forms/chromium/convert/html", 20_000);
+    if (gotenberg == null) gotenberg = new Gotenberg("http://gotenberg:3000", "/forms/chromium/convert/html",Duration.ofSeconds(60) );
     if (minio == null) minio = new Minio("http://minio:9000", "minioadmin", "minioadmin", "dxc-reports", 300);
     if (snapshot == null) snapshot = new Snapshot(Duration.ofMinutes(30), 200_000L, "v1", "detail");
   }
@@ -48,12 +49,12 @@ public record ReportProperties(
   public static record Gotenberg(
       String baseUrl,
       String endpoint,
-      int timeoutMs
+      Duration  timeout
   ) {
     public Gotenberg {
       if (baseUrl == null || baseUrl.isBlank()) baseUrl = "http://gotenberg:3000";
       if (endpoint == null || endpoint.isBlank()) endpoint = "/forms/chromium/convert/html";
-      if (timeoutMs <= 0) timeoutMs = 20_000;
+      if (timeout == null) timeout = Duration.ofSeconds(60);
     }
   }
 
@@ -87,4 +88,20 @@ public record ReportProperties(
       if (keyNamespace == null || keyNamespace.isBlank()) keyNamespace = "detail";
     }
   }
+
+  public record Signing(
+      Boolean enabled,            // default true
+      String keystorePath,        // /opt/keys/domain-signing-cert.p12
+      String storePassword,       // changeit
+      String keyPassword,         // changeit
+      String alias,               // optional; auto-pick first if blank
+      String signerName,          // "DXC Search Platform"
+      String signerLocation,      // "Bangkok, Thailand"
+      String signerReason         // "Official Report Verification"
+  ) {
+    public Signing {
+      if (enabled == null) enabled = Boolean.TRUE;
+    }
+  }
+
 }

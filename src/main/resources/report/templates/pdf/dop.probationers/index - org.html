@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="th" xmlns:th="http://www.thymeleaf.org">
+
 <head>
   <meta charset="utf-8" />
   <title>DXC | รายงานคุมประพฤติ</title>
@@ -13,15 +14,29 @@
 <body>
   <div class="content">
 
+    <!-- ===== Header (logo + brand only) ===== -->
+    <header class="header">
+      <div class="brand">
+        <img class="logo-img" alt="DXC"
+             src="../_common/img/dxc-logo.svg"
+             th:src="${embedAssets} ? ${inlineLogo} : @{../_common/img/dxc-logo.svg}" />
+        <div class="meta">
+          <div class="org">Data Exchange Center</div>
+          <div class="site"><a href="https://www.dxc.go.th" target="_blank">www.dxc.go.th</a></div>
+        </div>
+      </div>
+    </header>
+    <hr class="rule" />
+
     <!-- ===== Title ===== -->
     <div class="title-bar">ข้อมูลคุมประพฤติ</div>
 
-    <!-- ===== Summary (1-col) + QR on the right) ===== -->
+    <!-- ===== Summary (1-col) + QR on the right ===== -->
     <div class="summary-with-qr"
          th:classappend="${meta == null or meta['qrBase64'] == null} ? ' no-qr'">
       <table class="kv1">
         <colgroup>
-          <col style="width:35%" />
+          <col style="width:22%" />
           <col />
         </colgroup>
         <tbody>
@@ -48,7 +63,7 @@
       </aside>
     </div>
 
-    <!-- ===== Section: ข้อมูลผู้ถูกคุมประพฤติ ===== -->
+    <!-- ===== Section: ผู้ถูกคุมประพฤติ ===== -->
     <section class="section">
       <div class="section-title">ข้อมูลผู้ถูกคุมประพฤติ</div>
       <table class="kv2">
@@ -197,22 +212,31 @@
       </table>
     </section>
 
+    <!-- ===== Footer / print meta ===== -->
+    <footer class="print-meta">
+      <div class="left">
+        <div class="who">
+          ผู้พิมพ์ <span th:text="${meta != null ? meta['printedBy'] : '-'}">-</span><br />
+          วันที่ <span th:text="${meta != null ? meta['printedAtBe'] : '-'}">01/01/2568</span>
+        </div>
+      </div>
+      <div class="page-no">หน้า <span class="pageNumber"></span> / <span class="totalPages"></span></div>
+    </footer>
+
     <!-- ===== Watermark (optional) ===== -->
-<div class="wm" th:if="${wmText}">
-  <svg width="100%" height="100%">
-    <defs>
-      <pattern id="wm" width="600" height="300" patternUnits="userSpaceOnUse"
-               patternTransform="rotate(-35)"
-               th:attr="patternTransform=${wmAngle != null ? 'rotate(' + wmAngle + ')' : 'rotate(-35)'}">
-        <text x="0" y="0" dy="1em" style="font-size:28pt; fill:#111827; opacity:1;"
-              th:text="${wmText}">
-          DXC • PRINTED BY demo • 2025-10-09 • HASH abc123
-        </text>
-      </pattern>
-    </defs>
-    <rect width="100%" height="100%" fill="url(#wm)"></rect>
-  </svg>
-</div>
+    <div class="wm" th:if="${wmText}">
+      <svg width="100%" height="100%">
+        <defs>
+          <pattern id="wm" width="600" height="300" patternUnits="userSpaceOnUse"
+                   th:attr="patternTransform=${wmAngle != null ? 'rotate(' + wmAngle + ')' : 'rotate(-45)'}">
+            <text x="0" y="0" dy="1em" style="font-size:28pt; fill:#111827; opacity:.08;"
+                  th:text="${wmText}">DXC • INTERNAL USE ONLY • CONFIDENTIAL</text>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#wm)"></rect>
+      </svg>
+    </div>
+
   </div>
 </body>
 </html>

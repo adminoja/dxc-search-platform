@@ -32,7 +32,7 @@ public class GotenbergPdfRendererAdapter implements PdfRendererPort {
         .filter(logOnError()) // small helper below
         .build();
     this.endpoint = g.endpoint();               // e.g. /forms/chromium/convert/html
-    this.timeout = Duration.ofMillis(g.timeoutMs());
+    this.timeout = g.timeout();
   }
 
   @Override

@@ -107,6 +107,7 @@ platform:
   report:
     gotenberg:
       base-url: http://localhost:3000
+      timeout: PT60S
     minio:
       endpoint: http://localhost:9000
     templates:
@@ -121,6 +122,15 @@ platform:
       token-ttl-minutes: 1440
       qr: { size: 240 }
       barcode: { enabled: true }
+    sign:
+      enabled: true
+      keystorePath: classpath:report/sign/keys/dxc-2568-2569.pfx
+      storePassword: adminDXC1
+      keyPassword: adminDXC1
+      alias:
+      signerName: DXC Search Platform
+      signerLocation: Bangkok, Thailand
+      signerReason: Official Report Verification 
   audit:
     redactor:
       key-id: dev                               # allows rotation later

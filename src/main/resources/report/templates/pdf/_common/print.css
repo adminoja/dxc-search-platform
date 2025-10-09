@@ -87,7 +87,7 @@ body{
   border:1px solid #e5e7eb; border-radius:6px; padding:6pt;
 }
 .qr-card .qr{ width:120px; height:120px; display:inline-block; }
-.qr-note{ font-size:9.5pt; color:#6b7280; margin-top:3pt; }
+.qr-note{ font-size:9.5pt; color:#6b7280; margin-top:3pt; text-align:center; }
 
 @media print{
   .summary-with-qr{ page-break-inside: avoid; }
@@ -107,14 +107,22 @@ body{
 .who{ line-height:1.2; font-size:10pt; }
 
 /* ---- Watermark ---- */
-.wm{ position:fixed; inset:0; z-index:-1; opacity:.06; pointer-events:none; }
+/* --- Watermark: overlay over page, under content text --- */
+.content{ position: relative; z-index: 2; } /* content above wm */
+.wm{
+  position: fixed; inset: 0; z-index: 1;
+  opacity: .08;                /* visibility */
+  pointer-events: none;
+  mix-blend-mode: multiply;    /* helps over light backgrounds */
+}
+
 
 /* ---- PRINT: reserve space and pin footer (on every page) ---- */
 @page{ size:A4; margin:16mm 14mm 26mm 14mm; } /* bottom >= footer height+spacing */
 
 @media print{
   body{ padding:0; }
-  .wm{ opacity:.05; }
+  .wm{ opacity:.07; }
   .print-meta{
     position:fixed; left:14mm; right:14mm; bottom:10mm; z-index:10; background:#fff;
   }

@@ -13,6 +13,7 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
 
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import th.go.dxc.platform.search.application.common.report.ThaiFormatUtil;
@@ -20,7 +21,7 @@ import th.go.dxc.platform.search.application.report.model.ReportDataSnapshot;
 import th.go.dxc.platform.search.application.report.port.in.RenderHtmlReportUseCase;
 import th.go.dxc.platform.search.application.report.port.out.snapshot.SnapshotCachePort;
 import th.go.dxc.platform.search.application.report.port.out.template.HtmlTemplateRendererPort;
-
+@Slf4j
 @Service
 public class RenderHtmlReportUseCaseImpl implements RenderHtmlReportUseCase {
 
@@ -41,8 +42,11 @@ public class RenderHtmlReportUseCaseImpl implements RenderHtmlReportUseCase {
 
     @Override
     public Mono<Output> execute(Input input) {
+        log.debug("RenderHtmlReportUseCaseImpl.execute: Input={}",input);
         return Mono.fromCallable(() -> {
+                    log.debug("Start: input={}",input);
                     ReportDataSnapshot snap = snapshots.get(input.scope(), input.token());
+                    log.debug("snap={}", snap);
                     if (snap == null) return null;
 
                     Map<String, Object> model = new HashMap<>();
@@ -50,10 +54,12 @@ public class RenderHtmlReportUseCaseImpl implements RenderHtmlReportUseCase {
                     model.put("thai", thai);
 
                     // watermark controls (template reads wmText/wmAngle)
-                    model.put("wmText", "DXC • INTERNAL USE ONLY • CONFIDENTIAL");
+                    log.debug("watermark controls (template reads wmText/wmAngle)");
+                    model.put("wmText", "DXC • "+(input.user()==null?"anonymous":input.user().username())+" • INTERNAL USE ONLY • CONFIDENTIAL");
                     model.put("wmAngle", -45);
 
                     // footer meta (Map access via meta['key'] in template)
+                    log.debug("footer meta (Map access via meta['key'] in template)");
                     Map<String, Object> meta = new HashMap<>();
                     String qrText = "https://search.dxc.go.th/verify?vt="+input.token().value(); // or any string you want to encode
                     String qrBase64 = QrUtil.qrPngBase64(qrText, 256, 1);
@@ -68,6 +74,7 @@ public class RenderHtmlReportUseCaseImpl implements RenderHtmlReportUseCase {
                     model.put("meta", meta);
 
                     // single-file HTML: inline fonts + css + logo (Gotenberg-safe)
+                    log.debug("single-file HTML: inline fonts + css + logo (Gotenberg-safe)");
                     model.put("embedAssets", true);
                     model.put("inlineStyle", buildInlineStyle());
                     model.put("inlineLogo",
@@ -77,7 +84,9 @@ public class RenderHtmlReportUseCaseImpl implements RenderHtmlReportUseCase {
                     model.put("assetBase", "/report/templates/pdf/");
 
                     String templateBase = snap.datasetId(); // e.g. "dop.probationers"
+                    log.debug("templates.render {}/index, model = {}",templateBase,model==null?null:model.size());
                     String html = templates.render(templateBase + "/index", model);
+                    log.debug("return {}",html==null?null:html.length());
                     return new Output(html);
                 })
                 .subscribeOn(Schedulers.boundedElastic())
