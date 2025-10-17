@@ -1,4 +1,4 @@
-package th.go.dxc.platform.dxc_search_platform;
+package th.go.dxc.platform.search;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
