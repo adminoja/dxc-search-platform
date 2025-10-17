@@ -94,6 +94,21 @@ public static UserContext fromJwt(
     authorities.addAll(extractScopes(jwt));
     if (extraAuthorities != null) authorities.addAll(extraAuthorities);
 
+    String givenName = firstNonBlank(
+            jwt.getClaimAsString("given_name"),
+            jwt.getClaimAsString("givenName"),
+            jwt.getClaimAsString("firstnameEn"),
+            jwt.getClaimAsString("firstName"),
+            jwt.getClaimAsString("first_name"));
+    String middleName  = firstNonBlank(
+            jwt.getClaimAsString("middle_name"),
+            jwt.getClaimAsString("middleName"),
+            jwt.getClaimAsString("middlenameEn"));
+    String familyName  = firstNonBlank(
+            jwt.getClaimAsString("family_name"),
+            jwt.getClaimAsString("familyName"),
+            jwt.getClaimAsString("lastnameEn"),
+            jwt.getClaimAsString("lastName"));
     // Build record with new fields (issuer, realm)
     return new UserContext(
             nullIfBlank(userId),
@@ -105,7 +120,8 @@ public static UserContext fromJwt(
             locale,
             timeZone,
             nullIfBlank(issuer),
-            nullIfBlank(realm)
+            nullIfBlank(realm),
+            nullIfBlank(givenName),nullIfBlank(middleName),nullIfBlank(familyName)
     );
 }
 

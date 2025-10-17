@@ -2,7 +2,7 @@
 <html lang="th" xmlns:th="http://www.thymeleaf.org">
 <head>
   <meta charset="utf-8" />
-  <title>DXC | รายงานคุมประพฤติ</title>
+  <title th:text="${meta['dataset'].name}">ข้อมูลคุมประพฤติ</title>
 
   <!-- For offline preview -->
   <link rel="stylesheet" href="../_common/print.css" th:if="${!embedAssets}" th:href="@{../_common/print.css}" />
@@ -14,7 +14,7 @@
   <div class="content">
 
     <!-- ===== Title ===== -->
-    <div class="title-bar">ข้อมูลคุมประพฤติ</div>
+    <div class="title-bar" th:text="'ข้อมูล' + ${meta['dataset'].name}">ข้อมูลคุมประพฤติ</div>
 
     <!-- ===== Summary (1-col) + QR on the right) ===== -->
     <div class="summary-with-qr"
@@ -40,7 +40,7 @@
       </table>
 
       <aside class="qr-card" th:if="${meta != null and meta['qrBase64'] != null}">
-        <img class="qr" alt="qr" src="../_common/img/dxc-qr.png" th:src="${'data:image/png;base64,' + meta['qrBase64']}" />
+        <img class="qr" alt="qr" src="../_common/image/dxc-qr.png" th:src="${'data:image/png;base64,' + meta['qrBase64']}" />
         <div class="qr-note"
              th:text="${meta['qrCaption'] != null ? meta['qrCaption'] : 'สำหรับตรวจสอบรายงาน'}">
           สำหรับตรวจสอบรายงาน
@@ -65,7 +65,7 @@
             <td th:text="${#strings.defaultString(doc['citizenCardNumber'], '-')}">1102001084286</td>
 
             <th>วันเดือนปีเกิด</th>
-            <td th:with="d=${doc['birthDate']}" th:text="${d != null ? thai.dateBe(d, 'd MMMM yyyy') : '-'}">
+            <td th:text="${format.date(doc['birthDate'])}">
               14 กุมภาพันธ์ 2537
             </td>
           </tr>
@@ -86,7 +86,7 @@
 
           <tr>
             <th>เพศ</th>
-            <td th:text="${#strings.defaultString(doc['sex'], '-')}">MALE</td>
+            <td th:text="${format.codeKey(doc['sex'], 'dop-sex')}">ชาย</td>
 
             <th>ชื่อบิดาและมารดา</th>
             <td th:text="${
@@ -98,12 +98,13 @@
 
           <tr>
             <th>ที่อยู่</th>
-            <td colspan="3" th:with="h=${doc['homeNumber']},
-                     s=${doc['soi']},
-                     st=${doc['street']},
-                     sd=${doc['subDistrictName']},
-                     d=${doc['districtName']},
-                     p=${doc['provinceName']}" th:text="${thai.address(h, s, st, sd, d, p)}">
+            <td colspan="3"
+                th:text="${format.address(doc['homeNumber'],
+                                           doc['soi'],
+                                           doc['street'],
+                                           doc['subDistrictName'],
+                                           doc['districtName'],
+                                           doc['provinceName'])}">
               412 ถนน บางบอน4 แขวง หนองแขม เขต หนองแขม จังหวัด กรุงเทพมหานคร
             </td>
           </tr>
@@ -167,21 +168,19 @@
             </td>
 
             <th>วันที่ศาลสั่งคุมประพฤติ</th>
-            <td th:with="d=${doc['probationStartDate']}" th:text="${d != null ? thai.dateBe(d, 'd MMMM yyyy') : '-'}">
+            <td th:text="${format.date(doc['probationStartDate'])}">
               5 พฤศจิกายน 2555
             </td>
           </tr>
 
           <tr>
             <th>วันที่ครบกำหนดคุมประพฤติ</th>
-            <td th:with="d=${doc['probationPlannedEndDate']}"
-                th:text="${d != null ? thai.dateBe(d, 'd MMMM yyyy') : '-'}">
+            <td th:text="${format.date(doc['probationPlannedEndDate'])}">
               5 พฤศจิกายน 2556
             </td>
 
             <th>วันที่สิ้นสุดคุมประพฤติ</th>
-            <td th:with="d=${doc['probationActualEndDate']}"
-                th:text="${d != null ? thai.dateBe(d, 'd MMMM yyyy') : '-'}">
+            <td th:text="${format.date(doc['probationActualEndDate'])}">
               29 พฤศจิกายน 2556
             </td>
           </tr>
@@ -198,21 +197,21 @@
     </section>
 
     <!-- ===== Watermark (optional) ===== -->
-<div class="wm" th:if="${wmText}">
-  <svg width="100%" height="100%">
-    <defs>
-      <pattern id="wm" width="600" height="300" patternUnits="userSpaceOnUse"
-               patternTransform="rotate(-35)"
-               th:attr="patternTransform=${wmAngle != null ? 'rotate(' + wmAngle + ')' : 'rotate(-35)'}">
-        <text x="0" y="0" dy="1em" style="font-size:28pt; fill:#111827; opacity:1;"
-              th:text="${wmText}">
-          DXC • PRINTED BY demo • 2025-10-09 • HASH abc123
-        </text>
-      </pattern>
-    </defs>
-    <rect width="100%" height="100%" fill="url(#wm)"></rect>
-  </svg>
-</div>
+    <div class="wm" th:if="${wmText}">
+      <svg width="100%" height="100%">
+        <defs>
+          <pattern id="wm" width="400" height="200" patternUnits="userSpaceOnUse"
+                   patternTransform="rotate(-35)"
+                   th:attr="patternTransform=${wmAngle != null ? 'rotate(' + wmAngle + ')' : 'rotate(-35)'}">
+            <text x="0" y="0" dy="1em" style="font-size:14pt; fill:#111827; opacity:1;"
+                  th:text="${wmText}">
+              DXC • PRINTED BY demo • 2025-10-09 • HASH abc123
+            </text>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#wm)"></rect>
+      </svg>
+    </div>
   </div>
 </body>
 </html>

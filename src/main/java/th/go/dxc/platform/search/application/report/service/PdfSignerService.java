@@ -1,26 +1,5 @@
 package th.go.dxc.platform.search.application.report.service;
 
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.ExternalSigningSupport;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
-import org.bouncycastle.cert.jcajce.JcaCertStore;
-import org.bouncycastle.cms.CMSSignedData;
-import org.bouncycastle.cms.CMSSignedDataGenerator;
-import org.bouncycastle.cms.CMSProcessableByteArray;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.operator.ContentSigner;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
-import org.springframework.stereotype.Service;
-
-import lombok.extern.slf4j.Slf4j;
-import reactor.core.publisher.Mono;
-import th.go.dxc.platform.search.config.ReportProperties;
-
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.security.KeyStore;
@@ -28,11 +7,33 @@ import java.security.PrivateKey;
 import java.security.Security;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.GregorianCalendar;
 import java.util.Objects;
 import java.util.Optional;
+
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.ExternalSigningSupport;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
+import org.bouncycastle.cert.jcajce.JcaCertStore;
+import org.bouncycastle.cms.CMSProcessableByteArray;
+import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.cms.CMSSignedDataGenerator;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.stereotype.Service;
+
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Mono;
+import th.go.dxc.platform.search.application.report.port.out.template.FileResourcePort;
+import th.go.dxc.platform.search.config.ReportProperties;
 @Slf4j
 @Service
 public class PdfSignerService {
@@ -41,7 +42,7 @@ public class PdfSignerService {
   private final PrivateKey privateKey;     // null when disabled
   private final Certificate[] chain;       // null when disabled
 
-  public PdfSignerService(ReportProperties reportProps, ResourceLoader resourceLoader) {
+  public PdfSignerService(ReportProperties reportProps, ResourceLoader resourceLoader,FileResourcePort io) {
     this.cfg = reportProps.sign();
     if (cfg == null || Boolean.FALSE.equals(cfg.enabled())) {
       this.privateKey = null;
@@ -51,16 +52,24 @@ public class PdfSignerService {
     try {
       Security.addProvider(new BouncyCastleProvider());
 
-      Resource resource = resourceLoader.getResource(Objects.requireNonNull(cfg.keystorePath(),
-          "platform.report.sign.keystorePath is required"));
-      if (!resource.exists()) {
-        throw new IllegalStateException("Keystore not found: " + cfg.keystorePath());
+      // Resource resource = resourceLoader.getResource(Objects.requireNonNull(cfg.keystorePath(),
+      //     "platform.report.sign.keystorePath is required"));
+      // if (!resource.exists()) {
+      //   throw new IllegalStateException("Keystore not found: " + cfg.keystorePath());
+      // }
+      String location = Objects.requireNonNull(cfg.keystorePath(),
+          "platform.report.sign.keystorePath is required");
+      InputStream is = io.getInputStream(location).block(Duration.ofSeconds(5));
+      if(is==null)
+      {
+        throw new IllegalStateException("Keystore not found or unreadable: " + location);
       }
-
       KeyStore ks = KeyStore.getInstance("PKCS12");
-      try (InputStream is = resource.getInputStream()) {
         ks.load(is, toChars(cfg.storePassword()));
-      }
+      
+      // try (is = resource.getInputStream()) {
+      //   ks.load(is, toChars(cfg.storePassword()));
+      // }
 
       String alias = Optional.ofNullable(cfg.alias())
           .filter(a -> !a.isBlank())
@@ -82,13 +91,13 @@ public class PdfSignerService {
 
   /** No-op if disabled; otherwise returns signed PDF bytes. */
   public Mono<byte[]> sign(byte[] unsignedPdf) {
-    log.debug("sign: isEabled={}",isEnabled());
+    log.trace("sign: isEabled={}",isEnabled());
     if (!isEnabled()) return Mono.just(unsignedPdf);
     return Mono.fromCallable(() -> doSign(unsignedPdf));
   }
 
   private byte[] doSign(byte[] unsignedPdf) throws Exception {
-    log.debug("doSiign: {}",unsignedPdf==null?null:unsignedPdf.length);
+    log.trace("doSiign: {}",unsignedPdf==null?null:unsignedPdf.length);
     try (PDDocument doc = Loader.loadPDF(unsignedPdf);
          ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
@@ -108,7 +117,7 @@ public class PdfSignerService {
         byte[] cms = signCMS(ext.getContent().readAllBytes(), privateKey, chain);
         ext.setSignature(cms);
       }
-      log.debug("out: {}", out);
+      log.trace("out: {}", out);
       return out.toByteArray();
     }
   }

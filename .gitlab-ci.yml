@@ -1,0 +1,81 @@
+stages:
+  - verify
+  - image
+
+variables:
+  MAVEN_CLI_OPTS: "-B -ntp"
+  MAVEN_OPTS: "-DskipTests=false"
+  # GitLab auto-provides: CI_REGISTRY, CI_REGISTRY_USER, CI_REGISTRY_PASSWORD, CI_REGISTRY_IMAGE
+
+.cache-maven: &cache_maven
+  key:
+    files: [pom.xml]
+  paths:
+    - .m2/repository
+  policy: pull-push
+
+verify:
+  stage: verify
+  image: maven:3.9-eclipse-temurin-21
+  cache: *cache_maven
+  script:
+    - mvn $MAVEN_CLI_OPTS test
+  artifacts:
+    when: always
+    reports:
+      junit: "**/target/surefire-reports/*.xml"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+image:release:
+  stage: image
+  image: maven:3.9-eclipse-temurin-21
+  services:
+    - name: docker:27-dind
+      command: ["--mtu=1460"]
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+    # Paketo (optional tuning)
+    BP_JVM_VERSION: "21"
+    BPL_JVM_HEAD_ROOM: "0"
+    BPL_JVM_LOADED_CLASS_COUNT: "0"
+    BPL_JVM_THREAD_COUNT: "0"
+  needs: ["verify"]
+  script:
+    # 0) Registry login
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+
+    # 1) Normalize tag -> CLEAN_TAG
+    - |
+      if [[ -z "$CI_COMMIT_TAG" ]]; then
+        echo "No tag -> no release."
+        exit 0
+      fi
+      RAW_TAG="$CI_COMMIT_TAG"
+      CLEAN_TAG="${RAW_TAG#v}"
+      echo "Release tag: $RAW_TAG -> $CLEAN_TAG"
+
+    # 2) Set Maven project.version = CLEAN_TAG (no commit back)
+    - mvn $MAVEN_CLI_OPTS -DgenerateBackupPoms=false versions:set -DnewVersion="$CLEAN_TAG"
+
+    # 3) Sanity check
+    - MVN_VER="$(mvn -q -DforceStdout help:evaluate -Dexpression=project.version)"
+    - test "$MVN_VER" = "$CLEAN_TAG" || { echo "POM version ($MVN_VER) != tag ($CLEAN_TAG)"; exit 1; }
+
+    # 4) Build image with Buildpacks and tag as X.Y.Z
+    - mvn $MAVEN_CLI_OPTS -DskipTests \
+        -Dspring-boot.build-image.imageName="$CI_REGISTRY_IMAGE:$CLEAN_TAG" \
+        spring-boot:build-image
+
+    # 5) Add rollback tag by commit short SHA
+    - docker tag "$CI_REGISTRY_IMAGE:$CLEAN_TAG" "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+
+    # 6) Push both
+    - docker push "$CI_REGISTRY_IMAGE:$CLEAN_TAG"
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  rules:
+    # Only on semver tags like v1.2.3 or 1.2.3 (allow pre-release suffix)
+    - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+([\-\.][0-9A-Za-z\.]+)?$/'
+      when: on_success
+    - when: never

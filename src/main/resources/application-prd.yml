@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: ${SPRING_APPLICATION_NAME:@project.artifactId@}
+  config:
+    import: "configserver:"          # NOTE: no http URL here
+  cloud:
+    config:
+      enabled: true
+      fail-fast: true
+      retry:
+        max-attempts: 6
+        initial-interval: 1000
+        multiplier: 1.5
+        max-interval: 5000
+      discovery:
+        enabled: true
+        service-id: ${CONFIG_SERVICE_ID:dxc-config-server}
+
+eureka:
+  client:
+    serviceUrl:
+      # Comma-separated, no spaces
+      defaultZone: ${EUREKA_URIS:http://cloud-registry-01.ad.thaidxc.org:8761/eureka/,http://cloud-registry-02.ad.thaidxc.org:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    non-secure-port: ${server.port}
+    instance-id: ${spring.application.name}:${spring.cloud.client.ip-address:${HOSTNAME}}:${server.port}
+
+server:
+  port: 8080
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info

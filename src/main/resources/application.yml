@@ -1,7 +1,22 @@
-spring.application.name: dxc-search-platform
+spring:
+  application:
+    # If SPRING_APPLICATION_NAME is not set, default to the Maven artifactId
+    name: ${SPRING_APPLICATION_NAME:@project.artifactId@}
+
 server:
   port: 8080
-  forward-headers-strategy: framework  # if behind reverse proxy
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+
 
 springdoc:
   swagger-ui:
@@ -9,11 +24,6 @@ springdoc:
   api-docs:
     enabled: true
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
 
 app:
   security:

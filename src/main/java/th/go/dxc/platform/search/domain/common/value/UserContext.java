@@ -20,5 +20,15 @@ public record UserContext(
     Locale locale,           // user preference if available
     ZoneId timeZone,          // user preference if available
     String issuer,          // <- new: jwt.iss as String (e.g. https://sso/.../realms/DXC)
-    String realm            // <- optional: parsed from issuer; may be null
-) {}
+    String realm,            // <- optional: parsed from issuer; may be null
+    String givenName,
+    String middleName,
+    String familyName
+) {
+    public String fullName(){
+        return givenName +
+        ((middleName==null || middleName.isBlank())?"":" "+middleName)+
+        ((familyName==null || familyName.isBlank())?"":" "+familyName);
+    }
+
+}

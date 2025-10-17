@@ -55,111 +55,6 @@ management:
     tags:
       application: ${spring.application.name}
 
-# CORS used by your CorsConfig/CorsProperties
-cors:
-  allowed-origins:
-    - https://search-ui.sit.dxc.go.th
-  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
-  allowed-headers: Authorization,Content-Type,X-Requested-With,Accept,Origin,User-Agent
-  allow-credentials: false
-  max-age: 10m
-
-# ================== PLATFORM SETTINGS ==================
-platform:
-  catalog:
-    organizations:
-      - id: dop
-        name: Department of Probation
-        description: Ministry of Justice
-      - id: djop
-        name: Department of Juvenile Observation and Protection
-        description: Ministry of Justice
-    datasets:
-      - id: dop.probationers
-        name: Probationers
-        description: List of all probationers under the supervision of Department of Probation
-        owner-org-id: dop
-        route:
-          service-id: dxc-qm-dop-probationer-service
-          path: /api/v2/dop/probationers
-        mapping:
-          search-fields: [ "citizen_id","full_name" ]
-          summary-fields: [ "citizen_id", "full_name", "address.province", "probation_no" ]
-          natural-key-fields: [ "citizen_id" ]
-
-      - id: linkage.person
-        name: Dopa Person
-        description: List of all juvenile offenders under the supervision of Department of Juvenile Observation and Protection
-        owner-org-id: dopa
-        route:
-          service-id: dxc-qm-moi-linkage-service
-          path: /api/v2/moi-linkage/persons/{citizen_id}/moi-dopa-persons
-          headers:
-            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
-        mapping:
-          search-fields: [ "citizen_id" ]
-          summary-fields: [ "citizen_id", "full_name" ]
-          natural-key-fields: [ "citizen_id" ]
-  search:
-    cache:
-      ttl:
-        detail-ttl: PT30M
-  report:
-    gotenberg:
-      base-url: http://localhost:3000
-      timeout: PT60S
-    minio:
-      endpoint: http://localhost:9000
-    templates:
-      location: classpath:report-templates   # or file:/opt/dxc/templates
-      cache-seconds: 0                       # dev: hot reload; prod: >0
-      assets:
-        - report.css
-        - fonts/NotoSansThai-Regular.ttf
-        - fonts/NotoSansThai-Bold.ttf
-    verify:
-      endpoint-path: /verify
-      token-ttl-minutes: 1440
-      qr: { size: 240 }
-      barcode: { enabled: true }
-    sign:
-      enabled: true
-      keystorePath: classpath:report/sign/keys/dxc-2568-2569.pfx
-      storePassword: adminDXC1
-      keyPassword: adminDXC1
-      alias:
-      signerName: DXC Search Platform
-      signerLocation: Bangkok, Thailand
-      signerReason: Official Report Verification 
-  audit:
-    redactor:
-      key-id: dev                               # allows rotation later
-      hmac-key-b64: ZGV2LWRvLW5vdC11c2UtdGhpcy1pbi1wcm9kLSE=      # 32-byte random, Base64
-      output: hex                              # hex | base64
-  router:
-    connect-timeout: PT2S
-    read-timeout: PT5S
-    write-timeout: PT5S
-    retry:
-      enabled: true
-      max-attempts: 2
-    page-param-map:
-      page: page
-      size: size
-      sort: sort
-  pdf:
-    mode: external
-    # If sticking with PDFreactor in SIT:
-    base-url: http://pdfreactor.sit.dxc:9423
-    # Or a cost-free engine (Gotenberg) if you pilot that:
-    # base-url: http://gotenberg.sit.dxc:3000
-    storage:
-      bucket: reports
-      signed-url-ttl: PT15M
-  security:
-    hmac-secret-b64: "ZGV2LWRvLW5vdC11c2UtdGhpcy1pbi1wcm9kLSE="
-    scope-version: "v1"
-
 # ================== EUREKA (SERVICE DISCOVERY) ==================
 eureka:
   client:
@@ -184,3 +79,137 @@ logging:
     com.netflix.discovery.shared.resolver.aws.ConfigClusterResolver: WARN
     com.netflix.discovery: WARN
     org.springframework.security.oauth2.jwt: WARN
+
+
+# CORS used by your CorsConfig/CorsProperties
+cors:
+  allowed-origins:
+    - https://search-ui.sit.dxc.go.th
+  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-headers: Authorization,Content-Type,X-Requested-With,Accept,Origin,User-Agent
+  allow-credentials: false
+  max-age: 10m
+
+# ================== PLATFORM SETTINGS ==================
+platform:
+  catalog:
+    organizations:
+      - id: dop
+        name: กรมคุมประพฤติ
+        description: กรมคุมประพฤติ กระทรวงยุติธรรม
+      - id: doc
+        name: กรมราชทัณฑ์
+        description: กรมราชทัณฑ์ กระทรวงยุติธรรม
+      - id: dopa
+        name: กรมการปกครอง
+        description: กรมการปกครอง กระทรวงมหาดไทย
+      - id: djop
+        name: กรมพินิจและคุ้มครองเด็กและเยาวชน
+        description: กรมพินิจและคุ้มครองเด็กและเยาวชน กระทรวงยุติธรรม
+    datasets:
+      - id: dop.probationers
+        name: ผู้ถูกคุมประพฤติ
+        description: รายการข้อมูล ผู้ถูกคุมประพฤติ
+        owner-org-id: dop
+        route:
+          service-id: dxc-qm-dop-probationer-service
+          path: /api/v2/dop/probationers
+        mapping:
+          search-fields: [ "citizen_id","full_name" ]
+          summary-fields: [ "citizen_id", "full_name", "address.province", "probation_no" ]
+          natural-key-fields: [ "citizen_id" ]
+
+      - id: doc.prisoner
+        name: ผู้ต้องขัง (คดีที่พิพากษาแล้ว)
+        description: รายการข้อมูล ผู้ต้องขัง (คดีที่พิพากษาแล้ว)
+        owner-org-id: doc
+        route:
+          service-id: dxc-qm-doc-prisoner-service
+          path: /api/v2/doc/prisoners
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+        mapping:
+          search-fields: [ "citizen_id" ]
+          summary-fields: [ "citizen_id", "full_name" ]
+          natural-key-fields: [ "citizen_id" ]
+      - id: dopa.moi-dopa-person
+        name: ประชาชน
+        description: รายการข้อมูล ประชาชน กรมการปกครอง กระทรวงมหาดไทย
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-doc-prisoner-service
+          path: /api/v2/moi-linkage/persons/{citizen_id}/moi-dopa-persons
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+        mapping:
+          search-fields: [ "citizen_id" ]
+          summary-fields: [ "citizen_id", "full_name" ]
+          natural-key-fields: [ "citizen_id" ]
+  search:
+    cache:
+      ttl:
+        detail-ttl: PT30M
+  report:
+    gotenberg:
+      base-url: http://localhost:30000
+      timeout: PT60S
+    # minio:
+    #   endpoint: http://localhost:9000
+    template:
+      location: classpath:report/template/pdf   #classpath:..., gitlab:...., file:.....
+      css: "_common/print.css"
+      logo: 
+        path: "_common/image/dxc-logo.svg"
+        mime: "image/svg+xml"
+      font:
+        family: "TH Sarabun New"
+        mime: "font/woff2"
+        regular: "_common/font/thsarabunnew/THSarabunNew.woff2"
+        bold: "_common/font/thsarabunnew/THSarabunNew Bold.woff2"
+        italic: "_common/font/thsarabunnew/THSarabunNew Italic.woff2"
+        bold-italic: "_common/font/thsarabunnew/THSarabunNew BoldItalic.woff2"
+      header: "_common/header.html"
+      footer: "_common/footer.html"
+      gitlab:
+        base-url: https://devops.dxc.go.th
+        api-version: v4 
+        project-id: 52
+        ref: main
+        base-raw-url: https://devops.dxc.go.th/api/v4/projects/52/repository/files
+        token-header: PRIVATE-TOKEN
+        token: glpat-saq88VDaXRoW-3xqLNMj
+        connect-timeout-ms: 3000
+        read-timeout-ms: 5000      
+      code:
+        common-sex:
+          MALE: "ชาย"
+          FEMALE: "หญิง"
+          OTHER: "อื่นๆ"
+        # Optional dataset-specific override
+        dop-sex:
+          MALE: "ชาย"
+          FEMALE: "หญิง"
+    verify:
+      endpoint-path: /verify
+      token-ttl-minutes: 1440
+      qr: { size: 240 }
+      barcode: { enabled: true }
+    sign:
+      enabled: true
+      keystorePath: classpath:report/sign/keys/dxc-2568-2569.pfx
+      storePassword: adminDXC1
+      keyPassword: adminDXC1
+      alias:
+      signerName: DXC Search Platform
+      signerLocation: Bangkok, Thailand
+      signerReason: Official Report Verification
+  audit:
+    redactor:
+      key-id: dev                               # allows rotation later
+      hmac-key-b64: ZGV2LWRvLW5vdC11c2UtdGhpcy1pbi1wcm9kLSE=      # 32-byte random, Base64
+      output: hex                              # hex | base64
+
+  security:
+    hmac-secret-b64: "ZGV2LWRvLW5vdC11c2UtdGhpcy1pbi1wcm9kLSE="
+    scope-version: "v1"
+

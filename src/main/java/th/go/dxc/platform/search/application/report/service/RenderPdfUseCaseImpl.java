@@ -1,35 +1,26 @@
 package th.go.dxc.platform.search.application.report.service;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.chrono.ThaiBuddhistChronology;
 import java.time.format.DateTimeFormatter;
-import java.util.Base64;
 import java.util.Locale;
 import java.util.Objects;
 
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StreamUtils;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import io.netty.handler.logging.LogLevel;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
-import reactor.netty.http.client.HttpClient;
-import reactor.netty.transport.logging.AdvancedByteBufFormat;
 import th.go.dxc.platform.search.application.report.port.in.RenderHtmlReportUseCase;
 import th.go.dxc.platform.search.application.report.port.in.RenderPdfUseCase;
 import th.go.dxc.platform.search.config.ReportProperties;
@@ -44,25 +35,26 @@ public class RenderPdfUseCaseImpl implements RenderPdfUseCase {
     private final ReportProperties props;
     // 👇 ADD field
     private final PdfSignerService pdfSignerService;
+    private final TemplateIO io;
 
     public RenderPdfUseCaseImpl(
             RenderHtmlReportUseCase htmlUseCase,
-            ReportProperties props, PdfSignerService pdfSignerService) {
+            ReportProperties props, PdfSignerService pdfSignerService, TemplateIO io) {
         this.htmlUseCase = Objects.requireNonNull(htmlUseCase, "htmlUseCase");
         this.props = props;
         var strategies = ExchangeStrategies.builder()
                 .codecs(c -> c.defaultCodecs().maxInMemorySize(32 * 1024 * 1024)) // 32MB
                 .build();
 
-        HttpClient http = HttpClient.create()
-                .wiretap( // <— full request/response line+headers+body (human readable)
-                        "reactor.netty.http.client",
-                        LogLevel.DEBUG,
-                        AdvancedByteBufFormat.TEXTUAL);
+        // HttpClient http = HttpClient.create()
+        //         .wiretap( // <— full request/response line+headers+body (human readable)
+        //                 "reactor.netty.http.client",
+        //                 LogLevel.trace,
+        //                 AdvancedByteBufFormat.SIMPLE);
 
         this.webClient = WebClient.builder()
                 .baseUrl(props.gotenberg().baseUrl())
-                .clientConnector(new ReactorClientHttpConnector(http))
+                // .clientConnector(new ReactorClientHttpConnector(http))
                 .exchangeStrategies(strategies)
                 .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_PDF_VALUE)
                 .filter(logRequest()) // <— custom request logger
@@ -70,44 +62,45 @@ public class RenderPdfUseCaseImpl implements RenderPdfUseCase {
                 .build();
 
         this.pdfSignerService = Objects.requireNonNull(pdfSignerService); // <— added
+        this.io = io;
     }
 
     private static ExchangeFilterFunction logRequest() {
         return ExchangeFilterFunction.ofRequestProcessor(req -> {
-            log.debug("➡️  {} {}", req.method(), req.url());
-            req.headers().forEach((n, v) -> log.debug("➡️  {}: {}", n, String.join(",", v)));
+            log.trace("➡️  {} {}", req.method(), req.url());
+            req.headers().forEach((n, v) -> log.trace("➡️  {}: {}", n, String.join(",", v)));
             return Mono.just(req);
         });
     }
 
     private static ExchangeFilterFunction logResponse() {
         return ExchangeFilterFunction.ofResponseProcessor(res -> {
-            log.debug("⬅️  HTTP {}", res.statusCode());
-            res.headers().asHttpHeaders().forEach((n, v) -> log.debug("⬅️  {}: {}", n, String.join(",", v)));
+            log.trace("⬅️  HTTP {}", res.statusCode());
+            res.headers().asHttpHeaders().forEach((n, v) -> log.trace("⬅️  {}: {}", n, String.join(",", v)));
             return Mono.just(res);
         });
     }
 
     @Override
     public Mono<Output> execute(Input in) {
-        log.debug("execute: Input={}", in);
+        log.trace("execute: Input={}", in);
         Objects.requireNonNull(in, "input");
         Objects.requireNonNull(in.scope(), "scope");
         Objects.requireNonNull(in.token(), "token");
 
         // 1) First get the rendered HTML from your existing use case
-        log.debug("1) First get the rendered HTML from your existing use case");
+        log.trace("1) First get the rendered HTML from your existing use case");
         return htmlUseCase.execute(new RenderHtmlReportUseCase.Input(in.scope(), in.token(), in.user()))
                 .flatMap(htmlOut -> {
-                    log.debug("htmlOut = {}", htmlOut);
+                    log.trace("htmlOut = {}", htmlOut);
                     String html = htmlOut.html();
                     if (html == null || html.isBlank()) {
-                        log.debug("null HTML");
+                        log.trace("null HTML");
                         return Mono.error(new IllegalStateException("Rendered HTML is empty"));
                     }
-                    log.debug("html length = {}", html.length());
+                    log.trace("html length = {}", html.length());
                     // 2) Prepare Gotenberg multipart form
-                    log.debug("2) Prepare Gotenberg multipart form");
+                    log.trace("2) Prepare Gotenberg multipart form");
                     MultipartBodyBuilder mb = new MultipartBodyBuilder();
 
                     // "files" must contain an entry named index.html
@@ -116,8 +109,13 @@ public class RenderPdfUseCaseImpl implements RenderPdfUseCase {
                             .filename("index.html")
                             .contentType(new MediaType("text", "html", StandardCharsets.UTF_8));
                     // ---- header.html (from classpath) ----
-                    Resource header = headerWithLogo(in.user());
-                    if (header.exists()) {
+                    // Resource header = headerWithLogo(in.user());
+                    String header = headerWithLogoHtml(in.user());
+                    
+                    if (
+                        // header.exists()
+                        header !=null && !header.isBlank()
+                        ) {
                         mb.part("files", header).filename("header.html")
                                 .contentType(MediaType.TEXT_HTML);
                     } else {
@@ -125,8 +123,12 @@ public class RenderPdfUseCaseImpl implements RenderPdfUseCase {
                     }
 
                     // ---- footer.html (from classpath) ----
-                    Resource footer = footerBytes();
-                    if (footer.exists()) {
+                    // Resource footer = footerBytes();
+                    String footer = footerHtml();
+                    if (
+                        // footer.exists()
+                        footer!=null && !footer.isBlank()
+                        ) {
                         mb.part("files", footer).filename("footer.html")
                                 .contentType(MediaType.TEXT_HTML);
                     } else {
@@ -161,9 +163,9 @@ public class RenderPdfUseCaseImpl implements RenderPdfUseCase {
 
                     final String filename = ensurePdfSuffix(
                             in.filename() == null || in.filename().isBlank() ? "report.pdf" : in.filename());
-                    log.debug("Multiplart = {}", mb);
+                    log.trace("Multiplart = {}", mb);
                     // 3) Call Gotenberg
-                    log.debug("3) Call Gotenberg");
+                    log.trace("3) Call Gotenberg");
                     return webClient.post()
                             .uri("/forms/chromium/convert/html")
                             .contentType(MediaType.MULTIPART_FORM_DATA)
@@ -175,7 +177,7 @@ public class RenderPdfUseCaseImpl implements RenderPdfUseCase {
                                     // return res.bodyToMono(byte[].class)
                                     // .switchIfEmpty(Mono.fromRunnable(
                                     // () -> log.warn("⚠️ 200 OK with EMPTY BODY from Gotenberg")))
-                                    // .doOnNext(b -> log.debug("📄 PDF bytes received: {}", b.length))
+                                    // .doOnNext(b -> log.trace("📄 PDF bytes received: {}", b.length))
                                     // .map(bytes -> new Output(filename,
                                     // res.headers().contentType().map(MediaType::toString)
                                     // .orElse(MediaType.APPLICATION_PDF_VALUE),
@@ -183,7 +185,7 @@ public class RenderPdfUseCaseImpl implements RenderPdfUseCase {
                                     return res.bodyToMono(byte[].class)
                                             .switchIfEmpty(Mono.fromRunnable(
                                                     () -> log.warn("⚠️  200 OK with EMPTY BODY from Gotenberg")))
-                                            .doOnNext(b -> log.debug("📄 PDF bytes received: {}", b.length))
+                                            .doOnNext(b -> log.trace("📄 PDF bytes received: {}", b.length))
                                             // 🔐 sign here (no-op if disabled)
                                             .flatMap(pdfSignerService::sign)
                                             .map(signed -> new Output(
@@ -230,64 +232,31 @@ public class RenderPdfUseCaseImpl implements RenderPdfUseCase {
         }
     }
 
-    // inside your class
-    private ByteArrayResource headerWithLogo(UserContext user) {
-        try {
-            // read header template as string
-            Resource hdrTpl = firstExisting(
-                    "report/templates/pdf/_common/header.html",
-                    "templates/pdf/_common/header.html");
-            String html = new String(StreamUtils.copyToByteArray(hdrTpl.getInputStream()), StandardCharsets.UTF_8);
-
-            // read logo and base64 it
-            Resource logo = firstExisting(
-                    "report/templates/pdf/_common/img/dxc-logo.svg",
-                    "templates/pdf/_common/img/dxc-logo.svg");
-            String logoB64 = Base64.getEncoder().encodeToString(StreamUtils.copyToByteArray(logo.getInputStream()));
-
-            // replace marker
-            html = html.replace("{{LOGO_BASE64}}", logoB64);
-
-            // add printed_by, printed_date_time
-            html = html.replace("{{PRINTED_BY}}", user == null ? "Anonymous" : user.username());
-            html = html.replace("{{PRINTED_DATE_TIME}}", prettyDateTimeBe(Instant.now()));
-            // return as named resource "header.html"
-
-            return new ByteArrayResource(html.getBytes(StandardCharsets.UTF_8)) {
-                @Override
-                public String getFilename() {
-                    return "header.html";
-                }
-            };
-        } catch (IOException e) {
-            throw new RuntimeException("Unable to prepare PDF header with logo", e);
-        }
+    private String headerWithLogoHtml(UserContext user) {
+        String html = io.readTextSync(props.template().resolve(props.template().header()));
+        log.trace("logo from {} , mime={}",props.template().resolve(props.template().logo().path()),props.template().logo().mime());
+        String logoB64 = io.dataUriOrEmpty(props.template().resolve(props.template().logo().path()),
+                props.template().logo().mime());
+        // replace marker
+        log.trace("logoB64 = {}",left(logoB64,150));
+        html = html.replace("{{LOGO_BASE64}}", logoB64);
+        log.trace("html = {}", left(html,800));
+        // add printed_by, printed_date_time
+        html = html.replace("{{PRINTED_BY}}", user == null ? "Anonymous" : user.username());
+        html = html.replace("{{PRINTED_DATE_TIME}}", prettyDateTimeBe(Instant.now()));
+        return html;
     }
 
-    private ByteArrayResource footerBytes() {
-        try {
-            Resource f = firstExisting(
-                    "report/templates/pdf/_common/footer.html",
-                    "templates/pdf/_common/footer.html");
-            String html = new String(StreamUtils.copyToByteArray(f.getInputStream()), StandardCharsets.UTF_8);
-            return new ByteArrayResource(html.getBytes(StandardCharsets.UTF_8)) {
-                @Override
-                public String getFilename() {
-                    return "footer.html";
-                }
-            };
-        } catch (IOException e) {
-            throw new RuntimeException("Unable to read PDF footer", e);
-        }
+    private String left(String str,Integer count)
+    {
+        String left = "";
+        if(str!=null && !str.isBlank())left = str.substring(0,(count>=str.length()?str.length():count));
+        return left;
     }
 
-    private Resource firstExisting(String... classpathLocations) {
-        for (String p : classpathLocations) {
-            Resource r = new ClassPathResource(p); // path is relative to src/main/resources
-            if (r.exists())
-                return r;
-        }
-        return null; // or throw if you prefer
+    private String footerHtml(){
+        String html = io.readTextSync(props.template().resolve(props.template().footer()));
+        return html;
     }
 
     private String prettyDateTimeBe(Instant instant) {
