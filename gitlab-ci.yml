@@ -1,0 +1,202 @@
+# .gitlab-ci.yml — Spring Boot + Maven + Buildpacks + GitLab Release
+# Stages: build → test → verify → image → release
+# Image build uses Spring Boot Buildpacks (spring-boot:build-image) and pushes to GitLab Registry.
+# Tag pipelines: normalize vX.Y.Z → X.Y.Z, set Maven project.version to CLEAN_TAG (no commit), build & push X.Y.Z and short SHA.
+# Branch/MR pipelines: build & push images tagged by branch or MR IID and short SHA (version remains whatever is in POM).
+#
+# Prereqs:
+# - Maven Wrapper (./mvnw) or Maven available
+# - GitLab Container Registry configured (CI_REGISTRY_*, CI_REGISTRY_IMAGE)
+# - Runner with Docker-in-Docker allowed (privileged true)
+
+stages:
+  - build
+  - test
+  - verify
+  - image
+  - release
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+variables:
+  MAVEN_OPTS: "-Xmx1024m -XX:+UseG1GC"
+  MAVEN_CLI_OPTS: "-B -ntp"
+  DOCKER_TLS_CERTDIR: ""           # disable TLS for DinD
+  BP_JVM_VERSION: "21"             # Paketo JVM version hint (optional)
+
+cache:
+  key: "maven-${CI_PROJECT_ID}"
+  paths:
+    - .m2/repository
+  policy: pull-push
+
+# -----------------------------
+# Build & Test (Maven)
+# -----------------------------
+
+maven:build:
+  stage: build
+  image: maven:3.9.9-eclipse-temurin-21
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+  script:
+    - ./mvnw $MAVEN_CLI_OPTS -DskipTests package
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - target/*.jar
+
+maven:test:
+  stage: test
+  image: maven:3.9.9-eclipse-temurin-21
+  needs: ["maven:build"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+  script:
+    - ./mvnw $MAVEN_CLI_OPTS test
+  artifacts:
+    when: always
+    expire_in: 1 week
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+
+verify:
+  stage: verify
+  image: maven:3.9.9-eclipse-temurin-21
+  needs: ["maven:test"]
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+  script:
+    - ./mvnw $MAVEN_CLI_OPTS -DskipITs=true verify
+    - echo "verified $(date -Iseconds) by ${CI_RUNNER_DESCRIPTION:-runner}" > verify-report.txt
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - verify-report.txt
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+
+# -----------------------------
+# Image build with Buildpacks via spring-boot:build-image
+# -----------------------------
+
+image:build:
+  stage: image
+  image: maven:3.9.9-eclipse-temurin-21
+  services:
+    - name: docker:27.2.0-dind
+      command: ["--tls=false"]
+  needs:
+    - job: verify
+      optional: true           # avoid "needs ... but job not added" if verify is skipped by rules
+      artifacts: false
+    - job: maven:build
+      artifacts: true
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+  before_script:
+    # Install docker CLI in the Maven container to interact with DinD
+    - apt-get update -y
+    - apt-get install -y --no-install-recommends docker.io ca-certificates
+    - docker version || true
+    # 0) Registry login
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+  script:
+    # Decide tag strategy and (for tags) set Maven version := CLEAN_TAG
+    - |
+      if [[ -n "$CI_COMMIT_TAG" ]]; then
+        echo "Tag pipeline detected: $CI_COMMIT_TAG"
+        # 1) Normalize tag -> CLEAN_TAG
+        RAW_TAG="$CI_COMMIT_TAG"
+        CLEAN_TAG="${RAW_TAG#v}"
+        echo "Release tag: $RAW_TAG -> $CLEAN_TAG"
+
+        # 2) Set Maven project.version = CLEAN_TAG (no commit back)
+        ./mvnw $MAVEN_CLI_OPTS -DgenerateBackupPoms=false versions:set -DnewVersion="$CLEAN_TAG"
+
+        # 3) Sanity check version
+        MVN_VER="$(./mvnw -q -DforceStdout help:evaluate -Dexpression=project.version)"
+        test "$MVN_VER" = "$CLEAN_TAG" || { echo "POM version ($MVN_VER) != tag ($CLEAN_TAG)"; exit 1; }
+
+        # 4) Build image with Buildpacks and tag as X.Y.Z
+        ./mvnw $MAVEN_CLI_OPTS -DskipTests \
+          -Dspring-boot.build-image.imageName="$CI_REGISTRY_IMAGE:$CLEAN_TAG" \
+          spring-boot:build-image
+
+        # 5) Add rollback tag by commit short SHA
+        docker tag "$CI_REGISTRY_IMAGE:$CLEAN_TAG" "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+
+        # 6) Push both
+        docker push "$CI_REGISTRY_IMAGE:$CLEAN_TAG"
+        docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+
+      elif [[ "$CI_PIPELINE_SOURCE" == "merge_request_event" ]]; then
+        echo "Merge Request pipeline detected"
+        # Build an MR-scoped image
+        IMG_MR="$CI_REGISTRY_IMAGE:mr-$CI_MERGE_REQUEST_IID"
+        ./mvnw $MAVEN_CLI_OPTS -DskipTests \
+          -Dspring-boot.build-image.imageName="$IMG_MR" \
+          spring-boot:build-image
+        docker push "$IMG_MR"
+
+      else
+        echo "Branch pipeline detected for $CI_COMMIT_BRANCH"
+        SHORT_SHA="$(printf %.12s "$CI_COMMIT_SHA")"
+        SAFE_BRANCH="$(echo "$CI_COMMIT_BRANCH" | tr '/' '-')"
+        IMG_BRANCH="$CI_REGISTRY_IMAGE:$SAFE_BRANCH"
+        IMG_SHA="$CI_REGISTRY_IMAGE:$SHORT_SHA"
+
+        ./mvnw $MAVEN_CLI_OPTS -DskipTests \
+          -Dspring-boot.build-image.imageName="$IMG_BRANCH" \
+          spring-boot:build-image
+        docker tag "$IMG_BRANCH" "$IMG_SHA"
+        docker push "$IMG_BRANCH"
+        docker push "$IMG_SHA"
+      fi
+
+# -----------------------------
+# GitLab Release (for tags)
+# -----------------------------
+
+create:release:
+  stage: release
+  image: alpine:3.20
+  needs:
+    - job: image:build
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - echo "Preparing release for ${CI_COMMIT_TAG}"
+    - echo "Release created by pipeline ${CI_PIPELINE_URL}"
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: "Release $CI_COMMIT_TAG"
+    description: |
+      $CI_PROJECT_TITLE $CI_COMMIT_TAG
+
+      Commit: $CI_COMMIT_SHORT_SHA
+      Pipeline: $CI_PIPELINE_URL
+
+      Image pushed:
+        - $CI_REGISTRY_IMAGE:${CI_COMMIT_TAG#v}
+        - $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    assets:
+      links:
+        - name: "Container Image (${CI_COMMIT_TAG#v})"
+          url: "$CI_REGISTRY_IMAGE:${CI_COMMIT_TAG#v}"
+        - name: "Container Image (rollback: $CI_COMMIT_SHORT_SHA)"
+          url: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"

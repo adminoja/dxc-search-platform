@@ -271,6 +271,14 @@
 							<artifactId>lombok</artifactId>
 						</exclude>
 					</excludes>
+					<!-- Optional: defaults for build-image -->
+					<image>
+						<name>${docker.image:${project.groupId}/${project.artifactId}}</name>
+					</image>
+					<environment>
+						<BP_JVM_VERSION>${java.version}</BP_JVM_VERSION>
+						<!-- <BP_JVM_JLINK_ENABLED>false</BP_JVM_JLINK_ENABLED> -->
+					</environment>
 				</configuration>
 				<executions>
 					<execution>
