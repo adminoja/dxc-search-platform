@@ -57,6 +57,7 @@ maven:test:
   image: maven:3.9.9-eclipse-temurin-21
   needs: ["maven:build"]
   rules:
+    - if: $CI_COMMIT_TAG  
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
   script:
