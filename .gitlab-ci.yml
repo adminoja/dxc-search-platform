@@ -180,7 +180,6 @@ image:build:
 
 create:release:
   stage: release
-  # image: alpine:3.20
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   needs:
     - job: image:build
@@ -203,7 +202,5 @@ create:release:
         - $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
     assets:
       links:
-        - name: "Container Image (${CI_COMMIT_TAG#v})"
-          url: "$CI_REGISTRY_IMAGE:${CI_COMMIT_TAG#v}"
-        - name: "Container Image (rollback: $CI_COMMIT_SHORT_SHA)"
-          url: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+        - name: "Container Registry"
+          url: "$CI_PROJECT_URL/container_registry"
