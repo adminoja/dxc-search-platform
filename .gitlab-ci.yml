@@ -34,6 +34,10 @@ cache:
     - .m2/repository
   policy: pull-push
 
+default:
+  before_script:
+    - chmod +x mvnw || true
+
 # -----------------------------
 # Build & Test (Maven)
 # -----------------------------
