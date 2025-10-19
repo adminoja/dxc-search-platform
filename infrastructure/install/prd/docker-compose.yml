@@ -15,31 +15,38 @@ services:
     depends_on:
       gotenberg:
         condition: service_started
+    restart: unless-stopped
+    read_only: true
+    networks: [dxc_net]
+    # Expose app port (host:container) driven by APP_PORT
+    ports:
+      - "${SERVER_PORT:-8081}:${SERVER_PORT:-8081}"
+      # If you want to expose the management port separately, uncomment the next line:
+      - "${MANAGEMENT_SERVER_PORT:-${SERVER_PORT:-8082}}:${MANAGEMENT_SERVER_PORT:-${SERVER_PORT:-8082}}"
 
     environment:
       # Locale / profiles
       TZ: ${TZ:-Asia/Bangkok}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prd}
 
-      # === Host / Ports ===
       HOST_IP: ${HOST_IP:-10.14.33.70}
       SERVER_PORT: ${SERVER_PORT:-8081}
       MANAGEMENT_SERVER_PORT: ${MANAGEMENT_SERVER_PORT:-${SERVER_PORT:-8082}}
       MANAGEMENT_BASE_PATH: ${MANAGEMENT_BASE_PATH:-/actuator}
 
-      # === Eureka / SBA ===
+      # Eureka/SBA
       EUREKA_URIS: ${EUREKA_URIS:-http://cloud-registry-01.ad.thaidxc.org:8761/eureka/,http://cloud-registry-02.ad.thaidxc.org:8761/eureka/}
       EUREKA_NONSECURE_ENABLED: ${EUREKA_NONSECURE_ENABLED:-true}
       EUREKA_SECURE_ENABLED: ${EUREKA_SECURE_ENABLED:-false}
 
-      # === SSL / HTTPS toggles ===
+      # TLS off (HTTP-only)
       APP_SSL_ENABLED: ${APP_SSL_ENABLED:-false}
       MANAGEMENT_SSL_ENABLED: ${MANAGEMENT_SSL_ENABLED:-false}
 
-      # === External service URLs ===
+      # Gotenberg
       PLATFORM_REPORT_GOTENBERG_URL: ${PLATFORM_REPORT_GOTENBERG_URL:-http://gotenberg:3000}
 
-      # === JVM / Paketo / Logging (optional) ===
+      # (optional) JVM/logging defaults
       BPL_JVM_HEAP_RATIO: ${BPL_JVM_HEAP_RATIO:-70}
       BPL_JVM_HEAD_ROOM: ${BPL_JVM_HEAD_ROOM:-10}
       LOG_MAX_SIZE: ${LOG_MAX_SIZE:-10m}
@@ -57,8 +64,6 @@ services:
     # Paketo/Buildpacks: refresh trust store, then start web process
     command: ["/bin/bash","-lc","update-ca-certificates || true; exec /cnb/process/web"]
 
-    restart: unless-stopped
-    read_only: true
     # If Netty warns about noexec on /tmp, you can add :exec
     tmpfs:
       - /tmp
@@ -72,12 +77,6 @@ services:
       timeout: 3s
       retries: 10
       start_period: 20s
-
-    # Expose app port (host:container) driven by APP_PORT
-    ports:
-      - "${SERVER_PORT:-8081}:${SERVER_PORT:-8081}"
-      # If you want to expose the management port separately, uncomment the next line:
-      - "${MANAGEMENT_SERVER_PORT:-${SERVER_PORT:-8082}}:${MANAGEMENT_SERVER_PORT:-${SERVER_PORT:-8082}}"
 
     logging:
       driver: json-file
@@ -93,8 +92,6 @@ services:
         reservations:
           cpus: "${APP_CPUS_RES:-0.25}"
           memory: "${APP_MEM_RES:-256M}"
-
-    networks: [ dxc_net ]
 
   gotenberg:
     image: gotenberg/gotenberg:${GOTENBERG_TAG:-8.9.0}

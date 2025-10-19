@@ -8,15 +8,13 @@ server:
 management:
   server:
     port: ${MANAGEMENT_SERVER_PORT:${server.port}}
-  endpoint:
-    health:
-      probes:
-        enabled: true
   endpoints:
     web:
       exposure:
         include: health,info
       base-path: ${MANAGEMENT_BASE_PATH:/actuator}
+  ssl:
+    enabled: ${MANAGEMENT_SSL_ENABLED:false}
 
 spring:
   application:
@@ -54,11 +52,12 @@ eureka:
       management.port: ${management.server.port}
       management.context-path: ${management.endpoints.web.base-path}
 
+    # Explicit HTTP URLs (no HTTPS)
     health-check-url: "http://${HOST_IP:${ip-address}}:${management.server.port}${management.endpoints.web.base-path}/health"
     status-page-url:  "http://${HOST_IP:${ip-address}}:${management.server.port}${management.endpoints.web.base-path}/info"
 
-    # (Optional HTTPS)
-    secure-health-check-url: "https://${HOST_IP:${ip-address}}:${MANAGEMENT_SECURE_PORT:${management.server.port}}${management.endpoints.web.base-path}/health"
-    secure-status-page-url:  "https://${HOST_IP:${ip-address}}:${MANAGEMENT_SECURE_PORT:${management.server.port}}${management.endpoints.web.base-path}/info"
+    # Remove/comment these in HTTP-only:
+    # secure-health-check-url:
+    # secure-status-page-url:
 
     instance-id: "${spring.application.name}:${HOST_IP:${ip-address}}:${server.port}:${HOSTNAME}"
