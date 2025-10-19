@@ -3,7 +3,7 @@ Production overrides. Prefer pulling a prebuilt image and passing secrets via CI
 
 ## Deploy (example)
 ```bash
-docker compose       -f infrastructure/compose/base/docker-compose.yml       -f infrastructure/compose/prod/docker-compose.prod.yml       --env-file infrastructure/compose/prod/.env.prod       up -d
+docker compose       -f infrastructure/compose/base/docker-compose.yml       -f infrastructure/compose/prd/docker-compose.prd.yml       --env-file infrastructure/compose/prd/.env.prd       up -d
 ```
 
 ## Guidance
