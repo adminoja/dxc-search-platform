@@ -1,8 +1,28 @@
+server:
+  port: ${SERVER_PORT:8081}
+  forward-headers-strategy: framework
+  compression:
+    enabled: true
+    mime-types: application/json,text/html,text/plain,text/css,application/javascript,image/svg+xml
+
+management:
+  server:
+    port: ${MANAGEMENT_SERVER_PORT:${server.port}}
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: ${MANAGEMENT_BASE_PATH:/actuator}
+
 spring:
   application:
     name: ${SPRING_APPLICATION_NAME:@project.artifactId@}
   config:
-    import: "configserver:"          # NOTE: no http URL here
+    import: "configserver:"
   cloud:
     config:
       enabled: true
@@ -19,24 +39,26 @@ spring:
 eureka:
   client:
     serviceUrl:
-      # Comma-separated, no spaces
       defaultZone: ${EUREKA_URIS:http://cloud-registry-01.ad.thaidxc.org:8761/eureka/,http://cloud-registry-02.ad.thaidxc.org:8761/eureka/}
     register-with-eureka: true
     fetch-registry: true
   instance:
+    ip-address: ${HOST_IP:10.14.33.70}
     prefer-ip-address: true
     non-secure-port: ${server.port}
-    instance-id: ${spring.application.name}:${spring.cloud.client.ip-address:${HOSTNAME}}:${server.port}
+    non-secure-port-enabled: ${EUREKA_NONSECURE_ENABLED:true}
+    secure-port: ${APP_SECURE_PORT:8443}
+    secure-port-enabled: ${EUREKA_SECURE_ENABLED:false}
 
-server:
-  port: 8080
+    metadata-map:
+      management.port: ${management.server.port}
+      management.context-path: ${management.endpoints.web.base-path}
 
-management:
-  endpoint:
-    health:
-      probes:
-        enabled: true
-  endpoints:
-    web:
-      exposure:
-        include: health,info
+    health-check-url: "http://${HOST_IP:${ip-address}}:${management.server.port}${management.endpoints.web.base-path}/health"
+    status-page-url:  "http://${HOST_IP:${ip-address}}:${management.server.port}${management.endpoints.web.base-path}/info"
+
+    # (Optional HTTPS)
+    secure-health-check-url: "https://${HOST_IP:${ip-address}}:${MANAGEMENT_SECURE_PORT:${management.server.port}}${management.endpoints.web.base-path}/health"
+    secure-status-page-url:  "https://${HOST_IP:${ip-address}}:${MANAGEMENT_SECURE_PORT:${management.server.port}}${management.endpoints.web.base-path}/info"
+
+    instance-id: "${spring.application.name}:${HOST_IP:${ip-address}}:${server.port}:${HOSTNAME}"
