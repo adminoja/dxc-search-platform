@@ -15,5 +15,9 @@ public class Organization {
     private final String name;
     private final String description;
 
-    public record Id(String value) { }  
+    public record Id(String value) { 
+        public static Id of(String value) {
+            return new Id(value);
+        }
+    }  
 }

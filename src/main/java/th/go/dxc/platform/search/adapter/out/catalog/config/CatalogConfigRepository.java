@@ -1,27 +1,52 @@
 package th.go.dxc.platform.search.adapter.out.catalog.config;
 
 import java.text.Collator;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Repository;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import th.go.dxc.platform.search.application.catalog.port.out.DatasetRepository;
+import th.go.dxc.platform.search.application.catalog.port.out.DomainCatalogRepository;
 import th.go.dxc.platform.search.application.catalog.port.out.OrganizationRepository;
+import th.go.dxc.platform.search.application.catalog.port.out.SpecializedReportCatalogRepository;
+import th.go.dxc.platform.search.config.CatalogProperties;
+import th.go.dxc.platform.search.config.CatalogProperties.DatasetProps;
+import th.go.dxc.platform.search.config.CatalogProperties.MappingProps;
 import th.go.dxc.platform.search.domain.catalog.model.Dataset;
-import th.go.dxc.platform.search.domain.catalog.model.DatasetFieldMapping;
-import th.go.dxc.platform.search.domain.catalog.model.DatasetRoute;
+import th.go.dxc.platform.search.domain.catalog.model.Dataset.FieldRule;
+import th.go.dxc.platform.search.domain.catalog.model.Dataset.TransformRule;
+import th.go.dxc.platform.search.domain.catalog.model.Dataset.TransformType;
+import th.go.dxc.platform.search.domain.catalog.model.Domain;
 import th.go.dxc.platform.search.domain.catalog.model.Organization;
 import th.go.dxc.platform.search.domain.common.value.DomainPageRequest;
 import th.go.dxc.platform.search.domain.common.value.DomainPageResult;
+import th.go.dxc.platform.search.domain.search.model.SpecializedReport;
 
+@Slf4j
 @Repository
 @RequiredArgsConstructor
-public class CatalogConfigRepository implements OrganizationRepository, DatasetRepository {
+public class CatalogConfigRepository
+    implements OrganizationRepository, DatasetRepository, DomainCatalogRepository, SpecializedReportCatalogRepository {
   private final CatalogProperties properties;
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
   // Implementation details would go here
   @Override
@@ -75,17 +100,22 @@ public class CatalogConfigRepository implements OrganizationRepository, DatasetR
         datasetProps.name(),
         datasetProps.description(),
         new Organization.Id(datasetProps.ownerOrgId()),
-        new DatasetRoute(datasetProps.route().path(), datasetProps.route().serviceId(), datasetProps.route().headers()),
-        new DatasetFieldMapping(
+        new Dataset.Route(datasetProps.route().path(), datasetProps.route().serviceId(),
+            datasetProps.route().headers()),
+        new Dataset.FieldMapping(
             datasetProps.mapping() != null && datasetProps.mapping().searchFields() != null
                 ? datasetProps.mapping().searchFields()
                 : List.of(),
+            datasetProps.mapping() != null && datasetProps.mapping().canonicalSearchFields() != null
+                ? datasetProps.mapping().canonicalSearchFields()
+                : Map.of(),
             datasetProps.mapping() != null && datasetProps.mapping().summaryFields() != null
                 ? datasetProps.mapping().summaryFields()
                 : List.of(),
             datasetProps.mapping() != null && datasetProps.mapping().naturalKeyFields() != null
                 ? datasetProps.mapping().naturalKeyFields()
-                : List.of()));
+                : List.of()),
+        toDomains(datasetProps));
 
     // If you adopted LocalizedText (TH/EN), use:
     // var name = new LocalizedText(it.getNameTh(), it.getNameEn());
@@ -130,11 +160,194 @@ public class CatalogConfigRepository implements OrganizationRepository, DatasetR
 
   @Override
   public Optional<Dataset> findDatasetById(Dataset.Id id) {
-    return 
-        properties.datasets().stream()
-            .filter(d -> d.id() != null && d.id().equalsIgnoreCase(id.value()))
-            .findFirst()
-            .map(this::toDomain);
+    return properties.datasets().stream()
+        .filter(d -> d.id() != null && d.id().equalsIgnoreCase(id.value()))
+        .findFirst()
+        .map(this::toDomain);
+  }
+
+  @Override
+  public Flux<Domain> findDomainsByIds(List<Domain.Id> domainIds) {
+    if (domainIds == null || domainIds.isEmpty())
+      return Flux.empty();
+
+    // 1) Null-safe read of properties.domains()
+    List<CatalogProperties.DomainProps> props = properties.domains() == null ? Collections.emptyList()
+        : properties.domains();
+
+    // 2) Convert DomainProps -> Domain, then index by id
+    Map<String, Domain> byId = props.stream()
+        .map(this::toDomain) // make sure the method signature matches exactly (see below)
+        .collect(Collectors.toMap(
+            d -> d.id().value(),
+            Function.identity(),
+            (a, b) -> a,
+            LinkedHashMap::new));
+
+    // 3) Emit in the same order as requested, skipping missing
+    return Flux.fromIterable(domainIds)
+        .map(Domain.Id::value)
+        .distinct()
+        .map(byId::get)
+        .filter(Objects::nonNull);
+  }
+
+  @Override
+  public Mono<SpecializedReport> findSpecializedReportById(SpecializedReport.Id id) {
+    Objects.requireNonNull(id, "id is required");
+
+    return Mono.fromCallable(() -> properties.specializedReports().stream()
+        .filter(r -> r.id().equals(id.value()))
+        .findFirst()
+        .map(this::toDomain)
+        .orElse(null)).flatMap(Mono::justOrEmpty);
+  }
+
+  private SpecializedReport toDomain(CatalogProperties.SpecializedReportProps p) {
+    // Adjust constructors/factory methods to match your domain classes
+    return new SpecializedReport(
+        SpecializedReport.Id.of(p.id()),
+        p.name(),
+        Organization.Id.of(p.ownerOrgId()),
+        p.domainIds().stream().map(Domain.Id::of).collect(Collectors.toList()));
+  }
+
+  @Override
+  public Flux<Dataset.Id> findDatasetIds(SpecializedReport.Id reportId) {
+
+    // 1) Find the specialized report and get its domain-ids (empty if not found)
+    List<String> domainIds = properties.specializedReports().stream()
+        .filter(r -> r.id().equals(reportId.value())) // adjust if your id type differs
+        .findFirst()
+        .map(CatalogProperties.SpecializedReportProps::domainIds)
+        .orElse(List.of());
+
+    if (domainIds.isEmpty()) {
+      return Flux.empty();
+    }
+
+    Set<String> wanted = Set.copyOf(domainIds);
+
+    // 2) List all datasets that have ANY of those domain ids under datasets.domains
+    return Flux.fromIterable(properties.datasets())
+        .filter(ds -> ds.domains() != null && !ds.domains().isEmpty())
+        .filter(ds -> {
+          // domains() is assumed to be Map<String, ?>
+          // Match on the map's keys (domain ids)
+          var keys = ds.domains().keySet();
+          return keys.stream().anyMatch(wanted::contains);
+        })
+        .map(ds -> new Dataset.Id(ds.id())); // if you have Dataset.Id.of(String), use that instead
+  }
+
+  @Override
+  public Map<Dataset.Id, Map<String, String>> findDatasetIdLocalFields(List<String> canonicalKeyList) {
+    log.debug("findDatasetIdLocalFields: {}",canonicalKeyList);
+    Map<Dataset.Id, Map<String, String>> datasetIdLocalFields = new HashMap<>();
+
+    for (DatasetProps datasetProps : properties.datasets()) {
+      MappingProps mappingProps = datasetProps.mapping();
+      log.debug("mappingProps.canonicalSearchField: {}", mappingProps==null?null:mappingProps.canonicalSearchFields());
+      if(mappingProps != null && mappingProps.canonicalSearchFields() !=null && !mappingProps.canonicalSearchFields().isEmpty())
+      {
+        Map<String,String> searchFieldsProp = mappingProps.canonicalSearchFields();
+        // chcek if contain all keys
+        log.debug("hasAllKey: searchFieldProp={}, canonicalKeyList={}", searchFieldsProp,canonicalKeyList);
+        if(hasAllKey(searchFieldsProp, canonicalKeyList))
+        {
+          Map<String,String> fieldMap = new HashMap<>();
+          for(String key:canonicalKeyList)
+          {
+            fieldMap.put(key, searchFieldsProp.get(key));
+          }
+          log.debug("save key: {}",fieldMap);
+          datasetIdLocalFields.put(Dataset.Id.of(datasetProps.id()), fieldMap);
+        }
+      }
+    }
+    return datasetIdLocalFields;
+  }
+public static boolean hasAllKey(Map<String, String> toCheck, List<String> keys) {
+    return toCheck != null && (keys == null || keys.stream().allMatch(toCheck::containsKey));
+}
+
+  /**
+   * Map CatalogProperties.DomainProps -> Domain. Adjust to your actual API/types.
+   */
+  private Domain toDomain(CatalogProperties.DomainProps p) {
+    // Examples — pick the correct one for your model:
+
+    // If p.id() returns String:
+    // return new Domain(new Domain.Id(p.id()), p.name(), p.description(),
+    // p.canonicalKeys());
+
+    // If p.id() already returns Domain.Id:
+    // return new Domain(p.id(), p.name(), p.description(), p.canonicalKeys());
+
+    // Or, if you have a builder/factory:
+    return Domain.of(
+        new Domain.Id(p.id()), // or just p.id() if it's already Domain.Id
+        p.name(),
+        p.description(),
+        p.canonicalKeys());
+  }
+
+  private Map<String, Map<String, Dataset.FieldRule>> toDomains(CatalogProperties.DatasetProps datasetProps) {
+    if (datasetProps == null || datasetProps.domains() == null)
+      return Map.of();
+
+    Map<String, Map<String, CatalogProperties.FieldRuleProps>> source = datasetProps.domains();
+
+    // Jackson will convert by matching property names; enum values are matched by
+    // name.
+    return objectMapper.convertValue(
+        source,
+        new TypeReference<Map<String, Map<String, Dataset.FieldRule>>>() {
+        });
+  }
+
+  public Map<Dataset.Id, Dataset.FieldRule> findDatasetIdFieldRule(Domain.Id domainId, String canonicalKey) {
+    Objects.requireNonNull(domainId, "domainId is required");
+    Objects.requireNonNull(canonicalKey, "canonicalKey is required");
+
+    Map<Dataset.Id, Dataset.FieldRule> out = new LinkedHashMap<>();
+
+    // Iterate all datasets in catalog
+    for (CatalogProperties.DatasetProps ds : properties.datasets()) {
+      Map<String, Map<String, CatalogProperties.FieldRuleProps>> domains = ds.domains();
+      if (domains == null || domains.isEmpty())
+        continue;
+
+      // Domain-level map: canonicalKey -> FieldRuleProps
+      Map<String, CatalogProperties.FieldRuleProps> rules = domains.get(domainId.value());
+      if (rules == null || rules.isEmpty())
+        continue;
+
+      CatalogProperties.FieldRuleProps ruleProps = rules.get(canonicalKey);
+      if (ruleProps == null)
+        continue;
+
+      // Map props → domain model
+      FieldRule rule = toDomain(ruleProps);
+      out.put(Dataset.Id.of(ds.id()), rule); // use constructor if your Id has one
+    }
+
+    return out;
+  }
+
+  private FieldRule toDomain(CatalogProperties.FieldRuleProps p) {
+    return new FieldRule(
+        p.pointer(),
+        p.coalesce() == null ? List.of() : p.coalesce(),
+        p.compose(),
+        (p.transform() == null ? List.<CatalogProperties.TransformRuleProps>of() : p.transform())
+            .stream().map(this::toDomain).toList());
+  }
+
+  private TransformRule toDomain(CatalogProperties.TransformRuleProps t) {
+    // Assuming enum names match; adjust mapping if needed
+    TransformType type = TransformType.valueOf(t.type().name());
+    return new TransformRule(type, t.args() == null ? List.of() : t.args());
   }
 
 }

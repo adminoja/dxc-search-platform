@@ -110,6 +110,9 @@ platform:
       - id: djop
         name: กรมพินิจและคุ้มครองเด็กและเยาวชน
         description: กรมพินิจและคุ้มครองเด็กและเยาวชน กระทรวงยุติธรรม
+      - id: dopa
+        name: กรมการปกครองทหาร
+        description: กรมการปกครองทหาร กระทรวงกลาโหม
     datasets:
       - id: dop.probationers
         name: ผู้ถูกคุมประพฤติ
@@ -119,10 +122,28 @@ platform:
           service-id: dxc-qm-dop-probationer-service
           path: /api/v2/dop/probationers
         mapping:
-          search-fields: [ "citizen_id","full_name" ]
-          summary-fields: [ "citizen_id", "full_name", "address.province", "probation_no" ]
-          natural-key-fields: [ "citizen_id" ]
-
+          canonical-search-fields:
+            "person.citizen_id": "citizenCardNumber"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "full_name":
+              pointer: "caseName"
+          "address":
+            "province":
+              pointer: "provinceName"
+            "district":
+              pointer: "districtName"
+            "sub_district":
+              pointer: "subDistrictName"
+          "crime":
+            "case_no": 
+              pointer: "decidedCaseId"
+            "court_name": 
+              pointer: "courtName"
+            "offence": 
+              pointer: "predicateOffence"
       - id: doc.prisoner
         name: ผู้ต้องขัง (คดีที่พิพากษาแล้ว)
         description: รายการข้อมูล ผู้ต้องขัง (คดีที่พิพากษาแล้ว)
@@ -133,9 +154,60 @@ platform:
           headers:
             X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
         mapping:
-          search-fields: [ "citizen_id" ]
-          summary-fields: [ "citizen_id", "full_name" ]
-          natural-key-fields: [ "citizen_id" ]
+          canonical-search-fields:
+            "person.citizen_id": "citizenCardNumber"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "firstName"
+            "last_name":
+              pointer: "lastName"
+          "address":
+            "province":
+              pointer: "addressProvinceText"
+            "district":
+              pointer: "addressAmphurText"
+            "sub_district":
+              pointer: "addressTumbonText"
+          "crime":
+            "case_no": 
+              pointer: "decidedCaseId"
+            "court_name": 
+              pointer: "courtName"
+            "offence": 
+              pointer: "allegation"
+      - id: djop.juvenile-offender-new
+        name: ผู้ต้องหาหรือจำเลยในคดีเด็กและเยาวชน
+        description: รายการข้อมูล ผู้ต้องหาหรือจำเลยในคดีเด็กและเยาวชน
+        owner-org-id: djop
+        route:
+          service-id: dxc-qm-djop-juvenile-offender-2567-service
+          path: /api/qm/v2/djop/juvenile-offender-2567
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "idCardNo"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "jvnCardId"
+            "first_name":
+              pointer: "jvnFname"
+            "last_name":
+              pointer: "jvnLname"
+          "address":
+            "province":
+              pointer: "jvnLiveProvince"
+          "crime":
+            "case_no": 
+              pointer: "/caseDetailList/0/redCaseNum"
+            "court_name": 
+              pointer: "/caseDetailList/0/courtName"
+            "offence": 
+              pointer: "/caseDetailList/0/allegationName"
       - id: dopa.moi-dopa-person
         name: ประชาชน
         description: รายการข้อมูล ประชาชน กรมการปกครอง กระทรวงมหาดไทย
@@ -145,10 +217,52 @@ platform:
           path: /api/v2/moi-linkage/persons/{citizen_id}/moi-dopa-persons
           headers:
             X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
-        mapping:
-          search-fields: [ "citizen_id" ]
-          summary-fields: [ "citizen_id", "full_name" ]
-          natural-key-fields: [ "citizen_id" ]
+    domains:
+      - id: address
+        name: ที่อยู่
+        description: ข้อมูลที่อยู่ของบุคคล
+        canonical-keys:
+          - full_address
+          - province
+          - district
+          - sub_district
+          - postcode
+      - id: person
+        name: ข้อมูลส่วนบุคคล
+        description: ข้อมูลส่วนบุคคลทั่วไป
+        canonical-keys:
+          - citizen_id
+          - full_name
+          - first_name
+          - last_name
+      - id: crime
+        name: คดีอาญา
+        description: ข้อมูลคดีอาญา
+        canonical-keys:
+          - case_no
+          - court_name
+          - offence
+    specialized-reports:
+      - id: dop.probationer-report
+        name: รายงานผู้ถูกคุมประพฤติ
+        owner-org-id: dop
+        domain-ids:
+          - person
+          - address
+          - crime
+      - id: doc.prisoner-report
+        name: รายงานผู้ต้องขัง
+        owner-org-id: doc
+        domain-ids:
+          - person
+          - address
+      - id: djop.juvenile-offender-report
+        name: รายงานผู้ต้องหาหรือจำเลยในคดีเด็กและเยาวชน
+        owner-org-id: djop
+        domain-ids:
+          - person
+          - address
+    
   search:
     cache:
       ttl:

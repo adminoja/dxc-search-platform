@@ -1,6 +1,4 @@
 package th.go.dxc.platform.search.adapter.out.search.http.qm.mapper;
-import java.util.Map;
-
 // adapter/out/qm/mapper/QmResponseMapper.java
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -12,5 +10,6 @@ public interface QmResponseMapper {
   public String id();
 
   /** Convert arbitrary QM JSON into your unified page result. */
-  public DomainPageResult<Map<String,Object>> toPageResult(JsonNode body, DomainPageRequest req);
+  // public DomainPageResult<Map<String,Object>> toPageResult(JsonNode body, DomainPageRequest req);
+  public DomainPageResult<JsonNode> toPageResult(JsonNode body, DomainPageRequest req);
 }

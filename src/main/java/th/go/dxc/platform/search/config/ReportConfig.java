@@ -6,10 +6,10 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.StringTemplateResolver;
 
-import th.go.dxc.platform.search.adapter.out.cache.caffeine.CaffeineSnapshotCache;
+import th.go.dxc.platform.search.adapter.out.report.cache.CaffeineReportDataSnapshotStore;
 import th.go.dxc.platform.search.adapter.out.report.pdf.GotenbergPdfRendererAdapter;
 import th.go.dxc.platform.search.application.report.port.out.pdf.PdfRendererPort;
-import th.go.dxc.platform.search.application.report.port.out.snapshot.SnapshotCachePort;
+import th.go.dxc.platform.search.application.report.port.out.snapshot.ReportDataSnapshotStorePort;
 
 @Configuration
 public class ReportConfig {
@@ -45,8 +45,8 @@ public class ReportConfig {
   // }
 
   @Bean
-  public SnapshotCachePort snapshotCachePort(ReportProperties cfg) {
-    return new CaffeineSnapshotCache(cfg.snapshot());
+  public ReportDataSnapshotStorePort snapshotCachePort(ReportProperties cfg) {
+    return new CaffeineReportDataSnapshotStore(cfg.snapshot());
   }
 
   // @Bean

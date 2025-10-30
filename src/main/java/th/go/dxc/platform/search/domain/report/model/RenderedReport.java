@@ -1,0 +1,7 @@
+package th.go.dxc.platform.search.domain.report.model;
+
+public record RenderedReport(
+    String filename,     // e.g., my-report.pdf
+    String contentType,  // mime
+    byte[] bytes
+) {}

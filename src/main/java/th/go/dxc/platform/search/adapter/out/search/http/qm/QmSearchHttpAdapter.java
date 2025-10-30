@@ -10,19 +10,20 @@ import java.util.regex.Pattern;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import lombok.AllArgsConstructor;
 import reactor.core.publisher.Mono;
 import th.go.dxc.platform.search.adapter.out.catalog.config.CatalogConfigRepository;
 import th.go.dxc.platform.search.adapter.out.search.http.qm.client.QmSearchHttpClient;
 import th.go.dxc.platform.search.adapter.out.search.http.qm.mapper.QmResponseMapper;
-import th.go.dxc.platform.search.application.search.port.out.QmSearchPort;
+import th.go.dxc.platform.search.application.search.port.out.QmClientPort;
 import th.go.dxc.platform.search.domain.catalog.model.Dataset;
-import th.go.dxc.platform.search.domain.catalog.model.DatasetRoute;
 import th.go.dxc.platform.search.domain.common.value.DomainPageRequest;
 import th.go.dxc.platform.search.domain.common.value.DomainPageResult;
 import th.go.dxc.platform.search.domain.common.value.UserContext;
 import th.go.dxc.platform.search.domain.search.model.DataRecord;
-import th.go.dxc.platform.search.domain.search.model.SearchRequest;
+import th.go.dxc.platform.search.domain.search.model.LocalSearchRequest;
 
 /**
  * Outbound HTTP adapter that calls Query Manager (QM).
@@ -42,7 +43,7 @@ import th.go.dxc.platform.search.domain.search.model.SearchRequest;
  */
 @AllArgsConstructor
 @Component
-public class QmSearchHttpAdapter implements QmSearchPort {
+public class QmSearchHttpAdapter implements QmClientPort {
   private final CatalogConfigRepository catalog;
   private final QmSearchHttpClient http;
   private final Map<String, QmResponseMapper> mapperRegistry;
@@ -52,8 +53,8 @@ public class QmSearchHttpAdapter implements QmSearchPort {
 
   @Override
   public Mono<DomainPageResult<DataRecord>> search(
-      DatasetRoute route,
-      SearchRequest request,
+      Dataset.Route route,
+      LocalSearchRequest request,
       UserContext userContext) {
 
     // sync config lookup (defensive: we use the id present in the request)
@@ -70,14 +71,15 @@ public class QmSearchHttpAdapter implements QmSearchPort {
     return http.invoke(ds, request.criteria(), request.pageRequest(), headers)
         // mapper is sync -> use map
         .map(body -> mapper.toPageResult(body, request.pageRequest())) // DomainPageResult<Map<String,Object>>
-        // convert page content Map<String,Object> -> DataRecord
-        .map(this::mapPageToDataRecord);
+        // convert page content Map<String,Object> -> Map<String,Object>
+        .map(this::mapPageToDataRecord)
+        ;
   }
 
   // ---- helpers ----
 
   private DomainPageResult<DataRecord> mapPageToDataRecord(
-      DomainPageResult<Map<String, Object>> src) {
+      DomainPageResult<JsonNode> src) {
     List<DataRecord> items = src.content().stream()
         .map(this::toDataRecord)
         .toList();
@@ -90,9 +92,9 @@ public class QmSearchHttpAdapter implements QmSearchPort {
     );
   }
 
-  private DataRecord toDataRecord(Map<String, Object> row) {
-    // Adapt to your actual DataRecord implementation
-    return new DataRecord(row);
+  private DataRecord toDataRecord(JsonNode row) {
+    // Adapt to your actual Map<String,Object> implementation
+    return DataRecord.of(row);
   }
 
   /**
@@ -100,7 +102,7 @@ public class QmSearchHttpAdapter implements QmSearchPort {
    * Supports values like "{user.nin}" and "{citizen_id}".
    */
   private HttpHeaders resolveHeaders(Map<String, String> headerTemplates,
-      SearchRequest request,
+      LocalSearchRequest request,
       UserContext userContext) {
     HttpHeaders headers = new HttpHeaders();
     if (headerTemplates == null || headerTemplates.isEmpty()) {
@@ -129,7 +131,7 @@ public class QmSearchHttpAdapter implements QmSearchPort {
    * misconfig).
    */
   private String resolveTemplate(String template,
-      SearchRequest request,
+      LocalSearchRequest request,
       UserContext userContext) {
     Matcher m = PLACEHOLDER.matcher(template);
     StringBuffer sb = new StringBuffer(template.length());

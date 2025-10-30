@@ -19,7 +19,7 @@ import th.go.dxc.platform.search.application.catalog.port.in.ListDatasetUseCase;
 import th.go.dxc.platform.search.application.catalog.port.in.ListOrganizationUseCase;
 
 @RestController
-@RequestMapping("/api/v1/catalog")
+@RequestMapping("/api/search/catalog")
 @RequiredArgsConstructor
 public class CatalogApi {
     private final ListOrganizationUseCase listOrganizationUsecase;
