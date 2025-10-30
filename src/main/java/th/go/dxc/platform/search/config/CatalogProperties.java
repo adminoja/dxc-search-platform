@@ -61,6 +61,7 @@ public record CatalogProperties(
                         @NotBlank String name,
                         @NotBlank String ownerOrgId,
                         @NotEmpty List<String> domainIds) {
+                
         }
         /** platform.catalog.datasets[*].domains.<domain> */
         // public record DatasetDomainPropsg(

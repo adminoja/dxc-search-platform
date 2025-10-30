@@ -111,16 +111,19 @@ public final class LocalSearchApiMapper {
 
     public static LocalSearchResultDto toDto(LocalSearchResult r) {
         var page = r.pageResult(); // DomainPageResult<DataRecordSummary>
-
-        var items = page.content().stream()
+        
+        List<LocalSearchPageResultDto.Item> items = page==null?List.of():page.content().stream()
                 .map(LocalSearchApiMapper::toDtoItem)
                 .toList();
 
+        Integer pageNumber = page==null?0:page.number();
+        Integer pageSize = page==null?10:page.size();
+        Long totalElements = page==null?0:page.totalElements();
         return LocalSearchResultDto.of(
                 r.datasetId(),
                 r.runId(),
                 r.status(),
-                LocalSearchPageResultDto.of(items,page.number(),page.size(),page.totalElements()),
+                LocalSearchPageResultDto.of(items,pageNumber,pageSize,totalElements),
                 r.failure(),
                 r.startedAt(),
                 r.durationMs());

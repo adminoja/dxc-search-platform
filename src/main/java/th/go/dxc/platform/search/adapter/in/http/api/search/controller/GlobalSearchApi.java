@@ -46,6 +46,8 @@ public class GlobalSearchApi {
         .map(id -> Map.of("runId", id, "status", "QUEUED"));
   }
 
+
+  
   @GetMapping("/{runId}")
   public Mono<Map<String, Object>> status(@PathVariable String runId) {
     return store.get(runId).map(st -> Map.of(

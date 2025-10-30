@@ -190,6 +190,7 @@ platform:
         mapping:
           canonical-search-fields:
             "person.citizen_id": "idCardNo"
+          base-pointer: ""
         domains:
           "person":
             "citizen_id":
@@ -243,20 +244,20 @@ platform:
           - court_name
           - offence
     specialized-reports:
-      - id: dop.probationer-report
+      - id: idb-dop-person-report
         name: รายงานผู้ถูกคุมประพฤติ
         owner-org-id: dop
         domain-ids:
           - person
           - address
           - crime
-      - id: doc.prisoner-report
+      - id: idb-doc-person-report
         name: รายงานผู้ต้องขัง
         owner-org-id: doc
         domain-ids:
           - person
           - address
-      - id: djop.juvenile-offender-report
+      - id: idb-djop-person-report
         name: รายงานผู้ต้องหาหรือจำเลยในคดีเด็กและเยาวชน
         owner-org-id: djop
         domain-ids:
