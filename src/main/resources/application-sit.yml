@@ -113,6 +113,31 @@ platform:
       - id: dopa
         name: กรมการปกครองทหาร
         description: กรมการปกครองทหาร กระทรวงกลาโหม
+    domains:
+      - id: address
+        name: ที่อยู่
+        description: ข้อมูลที่อยู่ของบุคคล
+        canonical-keys:
+          - full_address
+          - province
+          - district
+          - sub_district
+          - postcode
+      - id: person
+        name: ข้อมูลส่วนบุคคล
+        description: ข้อมูลส่วนบุคคลทั่วไป
+        canonical-keys:
+          - citizen_id
+          - full_name
+          - first_name
+          - last_name
+      - id: crime
+        name: คดีอาญา
+        description: ข้อมูลคดีอาญา
+        canonical-keys:
+          - case_no
+          - court_name
+          - offence
     datasets:
       - id: dop.probationers
         name: ผู้ถูกคุมประพฤติ
@@ -121,6 +146,14 @@ platform:
         route:
           service-id: dxc-qm-dop-probationer-service
           path: /api/v2/dop/probationers
+          data:
+            is-array: true
+            pointers:
+              content: /content
+              page-number: /number
+              page-size: /size
+              number-of-elements: /numberOfElements
+              total-elements: /totalElements
         mapping:
           canonical-search-fields:
             "person.citizen_id": "citizenCardNumber"
@@ -151,8 +184,14 @@ platform:
         route:
           service-id: dxc-qm-doc-prisoner-service
           path: /api/v2/doc/prisoners
-          headers:
-            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          data:
+            is-array: true
+            pointers:
+              content: /content
+              page-number: /number
+              page-size: /size
+              number-of-elements: /numberOfElements
+              total-elements: /totalElements
         mapping:
           canonical-search-fields:
             "person.citizen_id": "citizenCardNumber"
@@ -185,12 +224,17 @@ platform:
         route:
           service-id: dxc-qm-djop-juvenile-offender-2567-service
           path: /api/qm/v2/djop/juvenile-offender-2567
-          headers:
-            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          data:
+            is-array: true
+            pointers:
+              content: /content
+              page-number: /number
+              page-size: /size
+              number-of-elements: /numberOfElements
+              total-elements: /totalElements
         mapping:
           canonical-search-fields:
             "person.citizen_id": "idCardNo"
-          base-pointer: ""
         domains:
           "person":
             "citizen_id":
@@ -209,40 +253,404 @@ platform:
               pointer: "/caseDetailList/0/courtName"
             "offence": 
               pointer: "/caseDetailList/0/allegationName"
-      - id: dopa.moi-dopa-person
-        name: ประชาชน
-        description: รายการข้อมูล ประชาชน กรมการปกครอง กระทรวงมหาดไทย
+      - id: dopa.moi-dopa-lk2-person
+        name: ทะเบียนราษฎร (Linkage2)
+        description: รายการข้อมูลทะเบียนราษฎร (Linkage2)
         owner-org-id: dopa
         route:
-          service-id: dxc-qm-doc-prisoner-service
-          path: /api/v2/moi-linkage/persons/{citizen_id}/moi-dopa-persons
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dopa/moi-dopa-lk2-persons
           headers:
             X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
-    domains:
-      - id: address
-        name: ที่อยู่
-        description: ข้อมูลที่อยู่ของบุคคล
-        canonical-keys:
-          - full_address
-          - province
-          - district
-          - sub_district
-          - postcode
-      - id: person
-        name: ข้อมูลส่วนบุคคล
-        description: ข้อมูลส่วนบุคคลทั่วไป
-        canonical-keys:
-          - citizen_id
-          - full_name
-          - first_name
-          - last_name
-      - id: crime
-        name: คดีอาญา
-        description: ข้อมูลคดีอาญา
-        canonical-keys:
-          - case_no
-          - court_name
-          - offence
+          querys:
+            serviceId: "1"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "firstName"
+            "last_name":
+              pointer: "lastName"
+      - id: dopa.moi-dopa-lk2-thai-id-cards
+        name: บัตรประจำตัวประชาชน (Linkage2)
+        description: รายการข้อมูลบัตรประจำตัวประชาชน (Linkage2)
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dopa/moi-dopa-lk2-thai-id-cards
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "37"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: dopa.moi-dopa-lk2-addresses
+        name: ฐานข้อมูลทะเบียนบ้าน (บุคคลทุกประเภท) (Linkage2)
+        description: รายการข้อมูลฐานข้อมูลทะเบียนบ้าน (บุคคลทุกประเภท) (Linkage2)
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dopa/moi-dopa-lk2-addresses
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "38"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: dopa.moi-dopa-lk2-birth-certificates
+        name: ฐานข้อมูลใบสูติบัตร (Linkage2)
+        description: รายการข้อมูลฐานข้อมูลใบสูติบัตร (Linkage2)
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dopa/moi-dopa-lk2-birth-certificates
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "17"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: dopa.moi-dopa-lk2-aliens
+        name: ข้อมูลทะเบียนบุคคลต่างด้าว (Linkage2)
+        description: รายการข้อมูลทะเบียนบุคคลต่างด้าว (Linkage2)
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dopa/moi-dopa-lk2-aliens
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "14"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: dopa.moi-dopa-lk2-divorce-certificates
+        name: ข้อมูลทะเบียนหย่า (Linkage2)
+        description: รายการข้อมูลทะเบียนหย่า (Linkage2)
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dopa/moi-dopa-lk2-divorce-certificates
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "15"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: dopa.moi-dopa-lk2-marriage-certificates
+        name: ข้อมูลทะเบียนสมรส (Linkage2)
+        description: รายการข้อมูลทะเบียนสมรส (Linkage2)
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dopa/moi-dopa-lk2-marriage-certificates
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "28"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: dopa.moi-dopa-lk2-person-face-photo
+        name: ข้อมูลภาพใบหน้า (Linkage2)
+        description: รายการข้อมูลภาพใบหน้า (Linkage2)
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dopa/moi-dopa-lk2-person-face-photo
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "21"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: dopa.moi-dopa-lk2-por4-licenses
+        name: ฐานข้อมูลใบอนุญาต ป.4 ครอบครองอาวุธปืน (Linkage2)
+        description: รายการฐานข้อมูลใบอนุญาต ป.4 ครอบครองอาวุธปืน (Linkage2)
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dopa/moi-dopa-lk2-por4-licenses
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "104"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: dopa.moi-dopa-lk2-person-changename-primary
+        name: ฐานข้อมูลการจดทะเบียนเปลี่ยนชื่อตัว (Linkage2)
+        description: รายการฐานข้อมูลการจดทะเบียนเปลี่ยนชื่อตัว (Linkage2)
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dopa/moi-dopa-lk2-person-changename-primary
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "8"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: dopa.moi-dopa-lk2-person-firstname-lastname
+        name: ฐานข้อมูลทะเบียนราษฎร (ค้นหาด้วยชื่อตัว-ชื่อสกุล) (Linkage2)
+        description: รายการฐานข้อมูลทะเบียนราษฎร (ค้นหาด้วยชื่อตัว-ชื่อสกุล) (Linkage2)
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dopa/moi-dopa-lk2-person-changename-primary
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "51"
+            recordNumber: "0"
+        mapping:
+          canonical-search-fields:
+            "person.first_name": "firstName"
+            "person.last_name": "lastName"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: dopa.moi-dopa-lk2-person-changelastname-primary
+        name: ฐานข้อมูลการจดทะเบียนเปลี่ยนชื่อสกุล (Linkage2)
+        description: รายการฐานข้อมูลการจดทะเบียนเปลี่ยนชื่อสกุล (Linkage2)
+        owner-org-id: dopa
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dopa/moi-dopa-lk2-person-changelastname-primary
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "20"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: amlo.lk2-asset-freeze-person
+        name: ข้อมูลรายชื่อบุคคลที่ถูกยึดหรืออายัดทรัพย์สิน (HR-02) (Linkage2)
+        description: รายการข้อมูลรายชื่อบุคคลที่ถูกยึดหรืออายัดทรัพย์สิน (HR-02) (Linkage2)
+        owner-org-id: amlo
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/amlo/lk2-asset-freeze-person
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "168"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: nhso.lk2-health-insurance-rights
+        name: ข้อมูลสิทธิประกันสุขภาพและการลงทะเบียนกับหน่วยบริการ (Linkage2)
+        description: รายการข้อมูลสิทธิประกันสุขภาพและการลงทะเบียนกับหน่วยบริการ (Linkage2)
+        owner-org-id: nhso
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/nhso/lk2-health-insurance-rights
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "97"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: dsd.lk2-workforce-developments
+        name: ฐานข้อมูลการพัฒนาฝีมือแรงงาน/ฐานข้อมูลผู้เข้ารับการทดสอบมาตรฐานฝีมือแรงงาน (Linkage2)
+        description: รายการฐานข้อมูลการพัฒนาฝีมือแรงงาน/ฐานข้อมูลผู้เข้ารับการทดสอบมาตรฐานฝีมือแรงงาน (Linkage2)
+        owner-org-id: dsd
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dsd/lk2-workforce-developments
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "91"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: dep.lk2-cripple
+        name: ข้อมูลคนพิการ (Linkage2)
+        description: รายการฐานข้อมูลคนพิการ (Linkage2)
+        owner-org-id: dep
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/dep/lk2-cripple
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "117"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: ops.lk2-student
+        name: ฐานข้อมูลนักเรียน (Linkage2)
+        description: รายการฐานข้อมูลนักเรียน (Linkage2)
+        owner-org-id: ops
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/ops/lk2-student
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "133"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
+      - id: ops.lk2-graduate
+        name: ฐานข้อมูลผู้สำเร็จการศึกษา (Linkage2)
+        description: รายการฐานข้อมูลผู้สำเร็จการศึกษา (Linkage2)
+        owner-org-id: ops
+        route:
+          service-id: dxc-qm-moi-linkage2-service
+          path: /api/moi/linkage2/ops/lk2-graduate
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+          querys:
+            serviceId: "134"
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "thaiNin"
+        domains:
+          "person":
+            "citizen_id":
+              pointer: "citizenCardNumber"
+            "first_name":
+              pointer: "nameTHFirstName"
+            "last_name":
+              pointer: "nameTHLastName"
     specialized-reports:
       - id: idb-dop-person-report
         name: รายงานผู้ถูกคุมประพฤติ

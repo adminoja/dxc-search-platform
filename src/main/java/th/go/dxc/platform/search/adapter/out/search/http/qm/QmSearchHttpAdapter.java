@@ -1,6 +1,7 @@
 // src/main/java/th/go/dxc/platform/search/adapter/out/search/http/qm/QmSearchHttpAdapter.java
 package th.go.dxc.platform.search.adapter.out.search.http.qm;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -66,14 +67,27 @@ public class QmSearchHttpAdapter implements QmClientPort {
 
     // Build headers with template resolution
     HttpHeaders headers = resolveHeaders(route.headers(), request, userContext);
+    // ✅ Make a MUTABLE map (and handle null safely)
+    Map<String, Object> criteria = new LinkedHashMap<>(
+        request.criteria() == null ? Map.of() : request.criteria());
 
+    // ---- choose ONE of the merge strategies below ----
+
+    // (A) Route values OVERRIDE request values (current behavior, but safe)
+    if (route.querys() != null) {
+      criteria.putAll(route.querys());
+    }
+
+    // (B) Route values are DEFAULTS only (do NOT override user request)
+    // if (route.querys() != null) {
+    // route.querys().forEach(criteria::putIfAbsent);
+    // }
     // http.invoke returns Mono<JsonNode>
-    return http.invoke(ds, request.criteria(), request.pageRequest(), headers)
+    return http.invoke(ds, criteria, request.pageRequest(), headers)
         // mapper is sync -> use map
-        .map(body -> mapper.toPageResult(body, request.pageRequest())) // DomainPageResult<Map<String,Object>>
+        .map(body -> mapper.toPageResult(body, request.pageRequest(), ds)) // DomainPageResult<Map<String,Object>>
         // convert page content Map<String,Object> -> Map<String,Object>
-        .map(this::mapPageToDataRecord)
-        ;
+        .map(this::mapPageToDataRecord);
   }
 
   // ---- helpers ----

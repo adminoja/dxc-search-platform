@@ -1,6 +1,5 @@
 package th.go.dxc.platform.search.application.search.service.special;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -21,15 +20,15 @@ import com.fasterxml.jackson.databind.node.NullNode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.function.Tuples;
 import th.go.dxc.platform.search.application.catalog.port.in.GetSpecializedReportByIdUseCase;
 import th.go.dxc.platform.search.application.catalog.port.in.ListDatasetFieldRuleMapByDomainCanonicalKeyUseCase;
 import th.go.dxc.platform.search.application.catalog.port.in.ListDomainsByIdsUseCase;
 import th.go.dxc.platform.search.application.search.port.in.GetGlobalSearchResultUseCase;
 import th.go.dxc.platform.search.application.search.port.in.GetSpecializedReportResultUseCase;
 import th.go.dxc.platform.search.domain.catalog.model.Dataset;
+import th.go.dxc.platform.search.domain.catalog.model.Dataset.FieldRule.TransformRule;
+import th.go.dxc.platform.search.domain.catalog.model.Dataset.FieldRule.TransformType;
 import th.go.dxc.platform.search.domain.catalog.model.Domain;
 import th.go.dxc.platform.search.domain.search.model.GlobalSearchResult;
 import th.go.dxc.platform.search.domain.search.model.LocalSearchRecord;
@@ -365,10 +364,10 @@ public class GetSpecializedReportResultExecutor
                 }
                 String s = value == null || value.isNull() ? null : value.asText(null);
 
-                for (Dataset.TransformRule tr : rule.transform()) {
+                for (TransformRule tr : rule.transform()) {
                         if (s == null)
                                 break;
-                        Dataset.TransformType type = tr.type();
+                        TransformType type = tr.type();
                         if (type == null)
                                 continue;
 

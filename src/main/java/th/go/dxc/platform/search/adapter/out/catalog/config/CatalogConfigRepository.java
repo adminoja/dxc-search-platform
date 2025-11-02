@@ -29,11 +29,20 @@ import th.go.dxc.platform.search.application.catalog.port.out.OrganizationReposi
 import th.go.dxc.platform.search.application.catalog.port.out.SpecializedReportCatalogRepository;
 import th.go.dxc.platform.search.config.CatalogProperties;
 import th.go.dxc.platform.search.config.CatalogProperties.DatasetProps;
-import th.go.dxc.platform.search.config.CatalogProperties.MappingProps;
+import th.go.dxc.platform.search.config.CatalogProperties.DatasetProps.FieldRuleProps;
+import th.go.dxc.platform.search.config.CatalogProperties.DatasetProps.FieldRuleProps.TransformRuleProps;
+import th.go.dxc.platform.search.config.CatalogProperties.DatasetProps.MappingProps;
+import th.go.dxc.platform.search.config.CatalogProperties.DatasetProps.RouteProps;
+import th.go.dxc.platform.search.config.CatalogProperties.DatasetProps.RouteProps.DataProps;
+import th.go.dxc.platform.search.config.CatalogProperties.DatasetProps.RouteProps.DataProps.PointerProps;
 import th.go.dxc.platform.search.domain.catalog.model.Dataset;
+import th.go.dxc.platform.search.domain.catalog.model.Dataset.FieldMapping;
 import th.go.dxc.platform.search.domain.catalog.model.Dataset.FieldRule;
-import th.go.dxc.platform.search.domain.catalog.model.Dataset.TransformRule;
-import th.go.dxc.platform.search.domain.catalog.model.Dataset.TransformType;
+import th.go.dxc.platform.search.domain.catalog.model.Dataset.FieldRule.TransformRule;
+import th.go.dxc.platform.search.domain.catalog.model.Dataset.FieldRule.TransformType;
+import th.go.dxc.platform.search.domain.catalog.model.Dataset.Route;
+import th.go.dxc.platform.search.domain.catalog.model.Dataset.Route.Data;
+import th.go.dxc.platform.search.domain.catalog.model.Dataset.Route.Data.Pointer;
 import th.go.dxc.platform.search.domain.catalog.model.Domain;
 import th.go.dxc.platform.search.domain.catalog.model.Organization;
 import th.go.dxc.platform.search.domain.common.value.DomainPageRequest;
@@ -100,21 +109,8 @@ public class CatalogConfigRepository
         datasetProps.name(),
         datasetProps.description(),
         new Organization.Id(datasetProps.ownerOrgId()),
-        new Dataset.Route(datasetProps.route().path(), datasetProps.route().serviceId(),
-            datasetProps.route().headers()),
-        new Dataset.FieldMapping(
-            datasetProps.mapping() != null && datasetProps.mapping().searchFields() != null
-                ? datasetProps.mapping().searchFields()
-                : List.of(),
-            datasetProps.mapping() != null && datasetProps.mapping().canonicalSearchFields() != null
-                ? datasetProps.mapping().canonicalSearchFields()
-                : Map.of(),
-            datasetProps.mapping() != null && datasetProps.mapping().summaryFields() != null
-                ? datasetProps.mapping().summaryFields()
-                : List.of(),
-            datasetProps.mapping() != null && datasetProps.mapping().naturalKeyFields() != null
-                ? datasetProps.mapping().naturalKeyFields()
-                : List.of()),
+        toDomain(datasetProps.route()),
+        toDomain(datasetProps.mapping()),
         toDomains(datasetProps));
 
     // If you adopted LocalizedText (TH/EN), use:
@@ -122,6 +118,37 @@ public class CatalogConfigRepository
     // return new Organization(new OrganizationId(it.getId()), name, it.isActive());
   }
 
+  private Route toDomain(RouteProps routeProps) {
+    return routeProps == null ? null
+        : Route.of(routeProps.path(), routeProps.serviceId(), routeProps.headers(),routeProps.querys(), toDomain(routeProps.data()));
+  }
+
+  private Data toDomain(DataProps dataProps) {
+    return dataProps == null ? null : Data.of(toDomain(dataProps.pointers()), dataProps.isArray());
+  }
+
+  private Pointer toDomain(PointerProps pointerProps) {
+    return pointerProps == null ? null
+        : Pointer.of(pointerProps.content(), pointerProps.pageNumber(), pointerProps.pageSize(),
+            pointerProps.numberOfElements(), pointerProps.totalElements());
+  }
+
+  private FieldMapping toDomain(MappingProps mappingProps)
+  {
+    return new FieldMapping(
+            mappingProps != null && mappingProps.searchFields() != null
+                ? mappingProps.searchFields()
+                : List.of(),
+            mappingProps != null && mappingProps.canonicalSearchFields() != null
+                ? mappingProps.canonicalSearchFields()
+                : Map.of(),
+            mappingProps != null && mappingProps.summaryFields() != null
+                ? mappingProps.summaryFields()
+                : List.of(),
+            mappingProps != null && mappingProps.naturalKeyFields() != null
+                ? mappingProps.naturalKeyFields()
+                : List.of());
+  }
   @Override
   public Optional<Organization> findOrganizationById(Organization.Id id) {
     return properties.organizations().stream().filter(o -> o.id().equalsIgnoreCase(id.value())).findAny()
@@ -242,34 +269,34 @@ public class CatalogConfigRepository
 
   @Override
   public Map<Dataset.Id, Map<String, String>> findDatasetIdLocalFields(List<String> canonicalKeyList) {
-    log.debug("findDatasetIdLocalFields: {}",canonicalKeyList);
+    log.debug("findDatasetIdLocalFields: {}", canonicalKeyList);
     Map<Dataset.Id, Map<String, String>> datasetIdLocalFields = new HashMap<>();
 
     for (DatasetProps datasetProps : properties.datasets()) {
       MappingProps mappingProps = datasetProps.mapping();
-      log.debug("mappingProps.canonicalSearchField: {}", mappingProps==null?null:mappingProps.canonicalSearchFields());
-      if(mappingProps != null && mappingProps.canonicalSearchFields() !=null && !mappingProps.canonicalSearchFields().isEmpty())
-      {
-        Map<String,String> searchFieldsProp = mappingProps.canonicalSearchFields();
+      log.debug("mappingProps.canonicalSearchField: {}",
+          mappingProps == null ? null : mappingProps.canonicalSearchFields());
+      if (mappingProps != null && mappingProps.canonicalSearchFields() != null
+          && !mappingProps.canonicalSearchFields().isEmpty()) {
+        Map<String, String> searchFieldsProp = mappingProps.canonicalSearchFields();
         // chcek if contain all keys
-        log.debug("hasAllKey: searchFieldProp={}, canonicalKeyList={}", searchFieldsProp,canonicalKeyList);
-        if(hasAllKey(searchFieldsProp, canonicalKeyList))
-        {
-          Map<String,String> fieldMap = new HashMap<>();
-          for(String key:canonicalKeyList)
-          {
+        log.debug("hasAllKey: searchFieldProp={}, canonicalKeyList={}", searchFieldsProp, canonicalKeyList);
+        if (hasAllKey(searchFieldsProp, canonicalKeyList)) {
+          Map<String, String> fieldMap = new HashMap<>();
+          for (String key : canonicalKeyList) {
             fieldMap.put(key, searchFieldsProp.get(key));
           }
-          log.debug("save key: {}",fieldMap);
+          log.debug("save key: {}", fieldMap);
           datasetIdLocalFields.put(Dataset.Id.of(datasetProps.id()), fieldMap);
         }
       }
     }
     return datasetIdLocalFields;
   }
-public static boolean hasAllKey(Map<String, String> toCheck, List<String> keys) {
+
+  public static boolean hasAllKey(Map<String, String> toCheck, List<String> keys) {
     return toCheck != null && (keys == null || keys.stream().allMatch(toCheck::containsKey));
-}
+  }
 
   /**
    * Map CatalogProperties.DomainProps -> Domain. Adjust to your actual API/types.
@@ -296,7 +323,7 @@ public static boolean hasAllKey(Map<String, String> toCheck, List<String> keys) 
     if (datasetProps == null || datasetProps.domains() == null)
       return Map.of();
 
-    Map<String, Map<String, CatalogProperties.FieldRuleProps>> source = datasetProps.domains();
+    Map<String, Map<String, FieldRuleProps>> source = datasetProps.domains();
 
     // Jackson will convert by matching property names; enum values are matched by
     // name.
@@ -314,16 +341,16 @@ public static boolean hasAllKey(Map<String, String> toCheck, List<String> keys) 
 
     // Iterate all datasets in catalog
     for (CatalogProperties.DatasetProps ds : properties.datasets()) {
-      Map<String, Map<String, CatalogProperties.FieldRuleProps>> domains = ds.domains();
+      Map<String, Map<String, FieldRuleProps>> domains = ds.domains();
       if (domains == null || domains.isEmpty())
         continue;
 
       // Domain-level map: canonicalKey -> FieldRuleProps
-      Map<String, CatalogProperties.FieldRuleProps> rules = domains.get(domainId.value());
+      Map<String, FieldRuleProps> rules = domains.get(domainId.value());
       if (rules == null || rules.isEmpty())
         continue;
 
-      CatalogProperties.FieldRuleProps ruleProps = rules.get(canonicalKey);
+      FieldRuleProps ruleProps = rules.get(canonicalKey);
       if (ruleProps == null)
         continue;
 
@@ -335,16 +362,16 @@ public static boolean hasAllKey(Map<String, String> toCheck, List<String> keys) 
     return out;
   }
 
-  private FieldRule toDomain(CatalogProperties.FieldRuleProps p) {
+  private FieldRule toDomain(FieldRuleProps p) {
     return new FieldRule(
         p.pointer(),
         p.coalesce() == null ? List.of() : p.coalesce(),
         p.compose(),
-        (p.transform() == null ? List.<CatalogProperties.TransformRuleProps>of() : p.transform())
+        (p.transform() == null ? List.<TransformRuleProps>of() : p.transform())
             .stream().map(this::toDomain).toList());
   }
 
-  private TransformRule toDomain(CatalogProperties.TransformRuleProps t) {
+  private TransformRule toDomain(TransformRuleProps t) {
     // Assuming enum names match; adjust mapping if needed
     TransformType type = TransformType.valueOf(t.type().name());
     return new TransformRule(type, t.args() == null ? List.of() : t.args());
