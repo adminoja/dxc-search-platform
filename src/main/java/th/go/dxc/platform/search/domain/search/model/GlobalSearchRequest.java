@@ -72,4 +72,7 @@ public GlobalSearchRequest {
   public static GlobalSearchRequest of(List<LocalSearchRequest> requests){
     return new GlobalSearchRequest(Instant.now(), requests, null, null, null, null, false, null);
   }
+    public static GlobalSearchRequest of(Map<String,Object> sharedCriteria,List<LocalSearchRequest> requests){
+    return new GlobalSearchRequest(Instant.now(), requests, null, null, null, null, false, sharedCriteria);
+  }
 }

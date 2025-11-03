@@ -17,6 +17,7 @@ import reactor.core.scheduler.Schedulers;
 import th.go.dxc.platform.search.application.search.port.in.GetGlobalSearchResultUseCase;
 import th.go.dxc.platform.search.application.search.port.in.SearchGlobalSearchUseCase;
 import th.go.dxc.platform.search.application.search.port.in.SearchLocalSearchUseCase;
+import th.go.dxc.platform.search.application.search.port.out.GlobalSearchRunIndexPort;
 import th.go.dxc.platform.search.application.search.port.out.GlobalSearchStorePort;
 import th.go.dxc.platform.search.domain.common.value.InvocationContext;
 import th.go.dxc.platform.search.domain.common.value.InvocationContext.FeatureType;
@@ -24,6 +25,7 @@ import th.go.dxc.platform.search.domain.common.value.UserContext;
 import th.go.dxc.platform.search.domain.search.exception.DomainSearchException;
 import th.go.dxc.platform.search.domain.search.model.GlobalSearchRequest;
 import th.go.dxc.platform.search.domain.search.model.GlobalSearchResult;
+import th.go.dxc.platform.search.domain.search.model.GlobalSearchRun;
 import th.go.dxc.platform.search.domain.search.model.GlobalSearchStatus;
 import th.go.dxc.platform.search.domain.search.model.LocalSearchRequest;
 import th.go.dxc.platform.search.domain.search.model.LocalSearchResult;
@@ -36,84 +38,94 @@ import th.go.dxc.platform.search.domain.search.model.LocalSearchTaskStatus;
 public class GlobalSearchService implements SearchGlobalSearchUseCase, GetGlobalSearchResultUseCase {
   private final GlobalSearchStorePort store;
   private final SearchLocalSearchUseCase local; // you already have it
+  private final GlobalSearchRunIndexPort runIndexPort;
   // cap concurrency so you don’t melt downstreams
   private final int maxConcurrency = 8;
 
   // @Override
   // public Mono<String> execute(SearchGlobalSearchUseCase.Input input) {
-  //   return startRunNew(input.req(), input.userContext(), input.invocationContext());
+  // return startRunNew(input.req(), input.userContext(),
+  // input.invocationContext());
   // }
 
-// GlobalSearchService.execute(...)
-@Override
-public Mono<String> execute(SearchGlobalSearchUseCase.Input input) {
-  return ReactiveSecurityContextHolder.getContext()
-      .map(sc -> sc.getAuthentication())
-      .flatMap(auth -> startRunNew(input.req(), input.userContext(), input.invocationContext(), auth))
-      .switchIfEmpty(startRunNew(input.req(), input.userContext(), input.invocationContext(), null));
-}
-
-
+  // GlobalSearchService.execute(...)
+  @Override
+  public Mono<String> execute(SearchGlobalSearchUseCase.Input input) {
+    return ReactiveSecurityContextHolder.getContext()
+        .map(sc -> sc.getAuthentication())
+        .flatMap(auth -> startRunNew(input.req(), input.userContext(), input.invocationContext(), auth))
+        .switchIfEmpty(startRunNew(input.req(), input.userContext(), input.invocationContext(), null));
+  }
 
   @Override
   public Mono<GlobalSearchResult> execute(GetGlobalSearchResultUseCase.Input input) {
     return store.getResult(input.runId());
   }
 
+  // private Mono<String> startRunNew(GlobalSearchRequest req, UserContext user,
+  // InvocationContext invo) {
+  // var dsIds = req.requests().stream().map(r -> r.datasetId().value()).toList();
 
-  // private Mono<String> startRunNew(GlobalSearchRequest req, UserContext user, InvocationContext invo) {
-  //   var dsIds = req.requests().stream().map(r -> r.datasetId().value()).toList();
-
-  //   return store.initRun(dsIds)
-  //     .doOnSuccess(runId -> {
-  //       // Fire-and-forget background pipeline
-  //       launchNew(runId, req, user, invo)
-  //         // needed only if your store/IO are blocking
-  //         .subscribeOn(Schedulers.boundedElastic())
-  //         // make sure failures mark the run as FAILED (bridge Mono<Void> properly)
-  //         .onErrorResume(ex ->
-  //           store.update(runId, st -> {
-  //               st.status = GlobalSearchStatus.FAILED;
-  //               st.finishedAt = Instant.now();
-  //             })
-  //             .then(Mono.error(ex))
-  //         )
-  //         .subscribe(
-  //           ignore -> {},
-  //           err -> log.error("GlobalSearch background failed runId={}", runId, err)
-  //         );
-  //     });
+  // return store.initRun(dsIds)
+  // .doOnSuccess(runId -> {
+  // // Fire-and-forget background pipeline
+  // launchNew(runId, req, user, invo)
+  // // needed only if your store/IO are blocking
+  // .subscribeOn(Schedulers.boundedElastic())
+  // // make sure failures mark the run as FAILED (bridge Mono<Void> properly)
+  // .onErrorResume(ex ->
+  // store.update(runId, st -> {
+  // st.status = GlobalSearchStatus.FAILED;
+  // st.finishedAt = Instant.now();
+  // })
+  // .then(Mono.error(ex))
+  // )
+  // .subscribe(
+  // ignore -> {},
+  // err -> log.error("GlobalSearch background failed runId={}", runId, err)
+  // );
+  // });
   // }
-private Mono<String> startRunNew(GlobalSearchRequest req,
-                                 UserContext user,
-                                 InvocationContext invo,
-                                 @Nullable Authentication auth) {
+  private Mono<String> startRunNew(GlobalSearchRequest req,
+      UserContext user,
+      InvocationContext invo,
+      @Nullable Authentication auth) {
 
-  var dsIds = req.requests().stream().map(r -> r.datasetId().value()).toList();
+    var dsIds = req.requests().stream().map(r -> r.datasetId().value()).toList();
 
-  return store.initRun(dsIds)
-      .doOnSuccess(runId -> {
-        Mono<GlobalSearchResult> bg =
-            launchNew(runId, req, user, invo)
+    return store.initRun(dsIds)
+        .doOnSuccess(runId -> {
+
+          // NEW: record the run in the index for listing
+          GlobalSearchRun runIdx = buildRunForIndex(runId, req, user, invo);
+          runIndexPort.save(runIdx)
+              // ensure the write happens even if the pipeline fails later
+              .onErrorResume(e -> {
+                log.error("Failed to save run index for runId={}", runId, e);
+                return Mono.empty();
+              })
+              .subscribe();
+
+          Mono<GlobalSearchResult> bg = launchNew(runId, req, user, invo)
               // if you have blocking I/O
               .subscribeOn(Schedulers.boundedElastic());
 
-        // Re-attach SecurityContext so WebClient can see the JWT
-        if (auth != null) {
-          bg = bg.contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
-        }
+          // Re-attach SecurityContext so WebClient can see the JWT
+          if (auth != null) {
+            bg = bg.contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
+          }
 
-        bg.onErrorResume(ex ->
-              store.update(runId, st -> { st.status = GlobalSearchStatus.FAILED; st.finishedAt = Instant.now(); })
-                  .then(Mono.error(ex)))
-          .subscribe(
-              ignore -> {},
-              err -> log.error("GlobalSearch background failed runId={}", runId, err)
-          );
-      });
-}
-
-
+          bg.onErrorResume(ex -> store.update(runId, st -> {
+            st.status = GlobalSearchStatus.FAILED;
+            st.finishedAt = Instant.now();
+          })
+              .then(Mono.error(ex)))
+              .subscribe(
+                  ignore -> {
+                  },
+                  err -> log.error("GlobalSearch background failed runId={}", runId, err));
+        });
+  }
 
   private Mono<GlobalSearchResult> launchNew(String runId, GlobalSearchRequest req, UserContext user,
       InvocationContext invo) {
@@ -122,20 +134,31 @@ private Mono<String> startRunNew(GlobalSearchRequest req,
       st.status = GlobalSearchStatus.RUNNING;
       st.startedAt = Instant.now();
     })
+
+        .then(
+            runIndexPort.get(runId)
+                .flatMap(existing -> runIndexPort.update(existing.withStatus(GlobalSearchStatus.RUNNING, null)))
+                .onErrorResume(e -> {
+                  log.warn("Could not update run index to RUNNING for runId={}", runId, e);
+                  return Mono.empty();
+                }))
+
         .thenMany(Flux.fromIterable(locals)
             .flatMap(localReq -> executeOne(runId, localReq, user, invo), maxConcurrency))
         .collectList()
-        .flatMap(localsResults -> finalizeRunNew(runId, req.requestedAt(), localsResults, invo));
+        .flatMap(localsResults -> finalizeRun(runId, req.requestedAt(), localsResults, invo));
   }
 
-  private Mono<GlobalSearchResult> finalizeRunNew(String runId, Instant startedAt, List<LocalSearchResult> locals,InvocationContext invo) {
+  private Mono<GlobalSearchResult> finalizeRun(String runId, Instant startedAt, List<LocalSearchResult> locals,
+      InvocationContext invo) {
+
     Instant finishedAt = Instant.now();
     GlobalSearchStatus status = deriveRunStatus(locals); // SUCCEEDED / PARTIAL / FAILED
 
     GlobalSearchResult global = new GlobalSearchResult(
         runId,
         invo.productFeatureId(),
-        
+
         locals,
         startedAt,
         Duration.between(startedAt, finishedAt).toMillis());
@@ -145,6 +168,14 @@ private Mono<String> startRunNew(GlobalSearchRequest req,
               st.status = status;
               st.finishedAt = finishedAt; // or persist elsewhere as you prefer
             }))
+        // NEW: mirror terminal status to run index
+        .then(
+            runIndexPort.get(runId)
+                .flatMap(existing -> runIndexPort.update(existing.withStatus(status, finishedAt)))
+                .onErrorResume(e -> {
+                  log.error("Failed to update run index after finalize for runId={}", runId, e);
+                  return Mono.empty();
+                }))
         .thenReturn(global);
   }
 
@@ -243,4 +274,15 @@ private Mono<String> startRunNew(GlobalSearchRequest req,
     return GlobalSearchStatus.FAILED;
   }
 
+  private GlobalSearchRun buildRunForIndex(
+      String runId,
+      GlobalSearchRequest req,
+      UserContext user,
+      InvocationContext invo) {
+    String userId = user.userId();
+    String username = user.username();
+    String reportId = invo.productFeatureId(); // you already set this on result
+    String subjectNin = (String) (req.sharedCriteria()==null?null:req.sharedCriteria().getOrDefault("citizen_id", ""));
+    return GlobalSearchRun.start(runId, userId, username, reportId, subjectNin, req.requestedAt());
+  }
 }

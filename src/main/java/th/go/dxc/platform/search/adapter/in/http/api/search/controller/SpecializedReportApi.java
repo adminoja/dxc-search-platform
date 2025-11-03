@@ -22,7 +22,10 @@ import th.go.dxc.platform.search.adapter.in.http.api.search.dto.SpecializedRepor
 import th.go.dxc.platform.search.adapter.in.http.api.search.dto.SpecializedReportResultDto;
 import th.go.dxc.platform.search.adapter.in.http.api.search.mapper.GlobalSearchApiMapper;
 import th.go.dxc.platform.search.adapter.in.http.api.search.mapper.SpecializedReportApiMapper;
+import th.go.dxc.platform.search.application.search.port.in.CancelSpecializedRunUseCase;
 import th.go.dxc.platform.search.application.search.port.in.GetSpecializedReportResultUseCase;
+import th.go.dxc.platform.search.application.search.port.in.GetSpecializedRunUseCase;
+import th.go.dxc.platform.search.application.search.port.in.ListSpecializedRunsUseCase;
 import th.go.dxc.platform.search.application.search.port.in.SearchSpecializedReportUseCase;
 import th.go.dxc.platform.search.application.search.port.out.GlobalSearchStorePort;
 import th.go.dxc.platform.search.domain.common.value.DomainPageRequest;
@@ -38,6 +41,40 @@ public class SpecializedReportApi {
   private final SearchSpecializedReportUseCase runs;
   private final GetSpecializedReportResultUseCase getResult;
   private final GlobalSearchStorePort store;
+
+
+
+  private final ListSpecializedRunsUseCase listRuns;
+  private final GetSpecializedRunUseCase getRun;
+  private final CancelSpecializedRunUseCase cancelRun;
+
+  // GET /api/report/specialized/runs?limit=50&offset=0&status=COMPLETED&reportId=...&q=3102*
+  @GetMapping("/runs")
+  public Mono<ListSpecializedRunsUseCase.Result> listRuns(
+      @RequestParam(defaultValue = "50") int limit,
+      @RequestParam(defaultValue = "0") int offset,
+      @RequestParam(required = false) String status,
+      @RequestParam(required = false) String reportId,
+      @RequestParam(required = false, name = "q") String query,
+     @AuthenticationPrincipal UserContext user
+  ) {
+    // adapt how you get the userId from auth
+    String userId = user.userId();
+    return listRuns.execute(ListSpecializedRunsUseCase.Input.of(userId, limit, offset, status, reportId, query));
+  }
+
+  // GET /api/report/specialized/runs/{runId}
+  @GetMapping("/runs/{runId}")
+  public Mono<ListSpecializedRunsUseCase.RunRow> getRun(@PathVariable String runId) {
+    return getRun.execute(GetSpecializedRunUseCase.Input.of(runId));
+  }
+
+  // POST /api/report/specialized/runs/{runId}:cancel
+  @PostMapping("/runs/{runId}:cancel")
+  public Mono<Boolean> cancel(@PathVariable String runId) {
+    return cancelRun.execute(CancelSpecializedRunUseCase.Input.of(runId));
+  }
+
 
   @PostMapping
   public Mono<Map<String, Object>> create(@RequestBody SpecializedReportRequestDto dto,

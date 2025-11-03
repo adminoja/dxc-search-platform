@@ -1,6 +1,7 @@
 package th.go.dxc.platform.search.config;
 
 import java.time.Duration;
+import java.util.Deque;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -20,46 +21,80 @@ import th.go.dxc.platform.search.domain.search.model.GlobalSearchState;
 public class CacheConfig {
 
   @Bean
-  Cache<String,Object> caffeineCache() {
+  Cache<String, Object> caffeineCache() {
     // Global TTL; adjust to your detailTtl()
     return Caffeine.newBuilder()
         .maximumSize(100_000)
         .expireAfterWrite(30, TimeUnit.MINUTES)
         .build();
   }
-  @Bean @Qualifier("reportTokenCache")
+
+  @Bean
+  @Qualifier("reportTokenCache")
   public Cache<String, LocalSearchResult> reportTokenCache() {
     return Caffeine.newBuilder()
         .maximumSize(50_000)
-        .expireAfterAccess(Duration.ofMinutes(30))   // token stays alive while being read
-        .removalListener((String k, LocalSearchResult v, RemovalCause c) -> { /* optional cleanup */})
+        .expireAfterAccess(Duration.ofMinutes(30)) // token stays alive while being read
+        .removalListener((String k, LocalSearchResult v, RemovalCause c) -> {
+          /* optional cleanup */})
         .build();
   }
 
-  @Bean @Qualifier("globalSearchStatusCache")
+  @Bean
+  @Qualifier("globalSearchStatusCache")
   public Cache<String, GlobalSearchState> globalSearchStatusCache() {
     return Caffeine.newBuilder()
         .maximumSize(100_000)
-        .expireAfterWrite(Duration.ofMinutes(20))    // old runs drop out quickly
+        .expireAfterWrite(Duration.ofMinutes(20)) // old runs drop out quickly
         .build();
   }
 
-  @Bean @Qualifier("globalSearchResultCache")
+  @Bean
+  @Qualifier("globalSearchResultCache")
   public Cache<String, GlobalSearchResult> globalSearchResultCache() {
     return Caffeine.newBuilder()
-        .maximumSize(10_000)                         // results can be big
+        .maximumSize(10_000) // results can be big
         .expireAfterWrite(Duration.ofMinutes(30))
-        .recordStats()                               // optional: monitor hit rate
+        .recordStats() // optional: monitor hit rate
         .build();
   }
+
+  @Bean("globalSearchRunCache")
+  public com.github.benmanes.caffeine.cache.Cache<String, th.go.dxc.platform.search.domain.search.model.GlobalSearchRun> globalSearchRunCache() {
+    return Caffeine.newBuilder()
+        .expireAfterWrite(Duration.ofDays(1)) // or longer if needed
+        .maximumSize(10_000)
+        .build();
+  }
+
+  @Bean("userRunIndexCache")
+  public com.github.benmanes.caffeine.cache.Cache<String, Deque<String>> userRunIndexCache() {
+    return Caffeine.newBuilder()
+        .expireAfterWrite(Duration.ofDays(1))
+        .maximumSize(10_000)
+        .build();
+  }
+
   @Bean
-  CachePort cachePort(Cache<String,Object> caffeineCache) {
+  CachePort cachePort(Cache<String, Object> caffeineCache) {
     // This adapter ignores per-entry TTL; global TTL is enforced by cache config.
     return new CachePort() {
-      @Override public <T> void put(String key, T value, java.time.Duration ttl) { caffeineCache.put(key, value); }
+      @Override
+      public <T> void put(String key, T value, java.time.Duration ttl) {
+        caffeineCache.put(key, value);
+      }
+
       @SuppressWarnings("unchecked")
-      @Override public <T> T get(String key, Class<T> type) { Object v = caffeineCache.getIfPresent(key); return v==null?null:(T)v; }
-      @Override public void evict(String key) { caffeineCache.invalidate(key); }
+      @Override
+      public <T> T get(String key, Class<T> type) {
+        Object v = caffeineCache.getIfPresent(key);
+        return v == null ? null : (T) v;
+      }
+
+      @Override
+      public void evict(String key) {
+        caffeineCache.invalidate(key);
+      }
     };
   }
 }
