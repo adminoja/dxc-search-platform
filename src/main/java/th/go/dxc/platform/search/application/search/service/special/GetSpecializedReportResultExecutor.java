@@ -74,29 +74,6 @@ public class GetSpecializedReportResultExecutor
                                                 .build());
         }
 
-        // private Mono<SpecializedReportResult> toSpecializedReportResult(
-        // GlobalSearchResult globalResult, String runId) {
-
-        // return getSpecializedReport
-        // .execute(GetSpecializedReportByIdUseCase.Input.of(globalResult.productFeatureId()))
-        // // Mono<SpecializedReport>
-        // .flatMapMany(report -> listDomains
-        // .execute(ListDomainsByIdsUseCase.Input.of(report.domainIds()))) //
-        // Flux<Domain>
-        // .flatMap(domain -> Flux.fromIterable(domain.canonicalKeys())
-        // .map(ck -> Tuples.of(domain.id(), ck))) // Flux<Tuple2<Domain.Id,String>>
-        // .map(t -> toDomainResults(t.getT1(), t.getT2(), globalResult)) //
-        // Map<Domain.Id,
-        // // Map<Dataset.Id,
-        // // List<Map<String,String>>>>
-        // .reduce(new LinkedHashMap<Domain.Id, Map<Dataset.Id, List<Map<String,
-        // String>>>>(),
-        // this::mergeDomainResultMaps) // merged map
-        // .map(merged -> SpecializedReportResult.builder()
-        // .runId(runId)
-        // .domainResults(merged)
-        // .build());
-        // }
 
         public Map<Domain.Id, Map<Dataset.Id, List<Map<String, String>>>> toDomainResultsAllKeys(
                         Domain.Id domainId,
@@ -173,47 +150,6 @@ public class GetSpecializedReportResultExecutor
 
                 return Collections.singletonMap(domainId, byDataset);
         }
-
-        // private Map<Domain.Id, Map<Dataset.Id, List<Map<String, String>>>> toDomainResults(
-        //                 Domain.Id domainId,
-        //                 String canonicalKey,
-        //                 GlobalSearchResult globalResult) {
-
-        //         Map<Dataset.Id, Dataset.FieldRule> rules = listFieldRuleMap.execute(
-        //                         new ListDatasetFieldRuleMapByDomainCanonicalKeyUseCase.Input(domainId, canonicalKey));
-
-        //         Map<Dataset.Id, List<JsonNode>> dataByDataset = toDatasetJsonMap(globalResult, mapper);
-        //         Instant now = Instant.now();
-
-        //         Map<Dataset.Id, List<Map<String, String>>> byDataset = new LinkedHashMap<>();
-
-        //         dataByDataset.forEach((datasetId, dataNodeList) -> {
-        //                 Dataset.FieldRule rule = rules.get(datasetId);
-        //                 if (rule == null)
-        //                         return; // no mapping for this dataset; skip
-
-        //                 List<Map<String, String>> rows = byDataset.computeIfAbsent(datasetId,
-        //                                 k -> new java.util.ArrayList<>());
-
-        //                 for (JsonNode dataNode : dataNodeList) {
-        //                         JsonNode valueNode = evaluateValue(dataNode, rule);
-        //                         String valueText = (valueNode == null || valueNode.isNull()) ? null
-        //                                         : valueNode.asText(null);
-
-        //                         // All String keys/values (value may be null; Map<String,String> allows null)
-        //                         Map<String, String> row = new LinkedHashMap<>();
-        //                         row.put("key", canonicalKey);
-        //                         row.put("value", valueText);
-        //                         row.put("timestamp", now.toString());
-        //                         // Optional: keep datasetId in the row too (redundant since it's the outer key)
-        //                         row.put("datasetId", datasetId.value());
-
-        //                         rows.add(row);
-        //                 }
-        //         });
-
-        //         return Collections.singletonMap(domainId, byDataset);
-        // }
 
         private Map<Domain.Id, Map<Dataset.Id, List<Map<String, String>>>> mergeDomainResultMaps(
                         Map<Domain.Id, Map<Dataset.Id, List<Map<String, String>>>> acc,

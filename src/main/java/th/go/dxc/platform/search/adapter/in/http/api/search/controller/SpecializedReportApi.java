@@ -137,6 +137,13 @@ public class SpecializedReportApi {
 
   @GetMapping("/{runId}/result/raw")
   public Mono<GlobalSearchResultDto> getResultRaw(@PathVariable String runId) {
-    return store.getResult(runId).map(GlobalSearchApiMapper::toDto);
+    return store.getResult(runId)
+        // if the publisher completes empty -> 404
+        .switchIfEmpty(Mono.error(new ResponseStatusException(
+            HttpStatus.NOT_FOUND, "Run not found: " + runId)))
+        // if the publisher errors with NoSuchElementException -> 404
+        .onErrorMap(NoSuchElementException.class,
+            e -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Run not found: " + runId, e))
+        .map(GlobalSearchApiMapper::toDto);
   }
 }
