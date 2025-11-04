@@ -16,7 +16,7 @@ import th.go.dxc.platform.search.domain.search.model.GlobalSearchStatus;
 
 @Component
 @RequiredArgsConstructor
-public class SpecializedRunsQueryExecutor implements ListSpecializedRunsUseCase {
+public class ListSpecializedRunsExecutor implements ListSpecializedRunsUseCase {
 
         private final GlobalSearchRunIndexPort runIndex;
         private final GlobalSearchStorePort store;

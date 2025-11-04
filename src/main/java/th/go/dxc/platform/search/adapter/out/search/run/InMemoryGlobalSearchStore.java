@@ -20,7 +20,7 @@ import th.go.dxc.platform.search.domain.search.model.GlobalSearchStatus;
 
 @AllArgsConstructor
 @Component
-public class InMemoryRunStore implements GlobalSearchStorePort {
+public class InMemoryGlobalSearchStore implements GlobalSearchStorePort {
   @Qualifier("globalSearchStatusCache")
   private final Cache<String, GlobalSearchState> statusCache;
   @Qualifier("globalSearchResultCache")

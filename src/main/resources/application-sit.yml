@@ -670,12 +670,7 @@ platform:
         owner-org-id: djop
         domain-ids:
           - person
-          - address
-    
-  search:
-    cache:
-      ttl:
-        detail-ttl: PT30M
+          - address   
   report:
     gotenberg:
       base-url: http://localhost:30000
@@ -735,8 +730,24 @@ platform:
       key-id: dev                               # allows rotation later
       hmac-key-b64: ZGV2LWRvLW5vdC11c2UtdGhpcy1pbi1wcm9kLSE=      # 32-byte random, Base64
       output: hex                              # hex | base64
-
   security:
     hmac-secret-b64: "ZGV2LWRvLW5vdC11c2UtdGhpcy1pbi1wcm9kLSE="
     scope-version: "v1"
+  cache:
+    report-token:
+      maximum-size: 50000
+      expire-after-access: 30m
+    global-search:
+      status:
+        maximum-size: 100000
+        expire-after-write: 30d
+      result:
+        maximum-size: 10000
+        expire-after-write: 30d
+      run:
+        maximum-size: 10000
+        expire-after-write: 180d
+      user-index:
+        maximum-size: 10000
+        expire-after-write: 180d
 

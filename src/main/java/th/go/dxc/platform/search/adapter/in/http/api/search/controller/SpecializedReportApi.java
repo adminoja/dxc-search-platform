@@ -3,8 +3,10 @@ package th.go.dxc.platform.search.adapter.in.http.api.search.controller;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
@@ -42,13 +45,12 @@ public class SpecializedReportApi {
   private final GetSpecializedReportResultUseCase getResult;
   private final GlobalSearchStorePort store;
 
-
-
   private final ListSpecializedRunsUseCase listRuns;
   private final GetSpecializedRunUseCase getRun;
   private final CancelSpecializedRunUseCase cancelRun;
 
-  // GET /api/report/specialized/runs?limit=50&offset=0&status=COMPLETED&reportId=...&q=3102*
+  // GET
+  // /api/report/specialized/runs?limit=50&offset=0&status=COMPLETED&reportId=...&q=3102*
   @GetMapping("/runs")
   public Mono<ListSpecializedRunsUseCase.Result> listRuns(
       @RequestParam(defaultValue = "50") int limit,
@@ -56,8 +58,7 @@ public class SpecializedReportApi {
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String reportId,
       @RequestParam(required = false, name = "q") String query,
-     @AuthenticationPrincipal UserContext user
-  ) {
+      @AuthenticationPrincipal UserContext user) {
     // adapt how you get the userId from auth
     String userId = user.userId();
     return listRuns.execute(ListSpecializedRunsUseCase.Input.of(userId, limit, offset, status, reportId, query));
@@ -74,7 +75,6 @@ public class SpecializedReportApi {
   public Mono<Boolean> cancel(@PathVariable String runId) {
     return cancelRun.execute(CancelSpecializedRunUseCase.Input.of(runId));
   }
-
 
   @PostMapping
   public Mono<Map<String, Object>> create(@RequestBody SpecializedReportRequestDto dto,
@@ -97,9 +97,9 @@ public class SpecializedReportApi {
       @RequestHeader(name = "X-Correlation-Id", required = false) String correlationId,
       @AuthenticationPrincipal UserContext user) {
     String runId = UUID.randomUUID().toString();
-    Map<String,Object> criteria = params==null?Map.of():new LinkedHashMap<>(params);
-    Integer page = params!=null && params.containsKey("page")?Integer.valueOf(params.get("page")):0;
-    Integer size = params!=null && params.containsKey("size")?Integer.valueOf(params.get("size")):5;
+    Map<String, Object> criteria = params == null ? Map.of() : new LinkedHashMap<>(params);
+    Integer page = params != null && params.containsKey("page") ? Integer.valueOf(params.get("page")) : 0;
+    Integer size = params != null && params.containsKey("size") ? Integer.valueOf(params.get("size")) : 5;
     SpecializedReportRequest req = SpecializedReportRequest.of(Instant.now(), SpecializedReport.Id.of(reportId),
         criteria, DomainPageRequest.of(page, size));
     InvocationContext invo = InvocationContext.userTopLevel(
@@ -113,14 +113,21 @@ public class SpecializedReportApi {
 
   @GetMapping("/{runId}")
   public Mono<Map<String, Object>> status(@PathVariable String runId) {
-    return store.get(runId).map(st -> Map.of(
-        "runId", st.runId,
-        "status", st.status.name(),
-        "requestedAt", st.requestedAt,
-        "startedAt", st.startedAt,
-        "updatedAt", st.updatedAt,
-        "progress", st.progress(),
-        "datasets", st.perDataset.values()));
+    return store.get(runId)
+        // if the publisher completes empty -> 404
+        .switchIfEmpty(Mono.error(new ResponseStatusException(
+            HttpStatus.NOT_FOUND, "Run not found: " + runId)))
+        // if the publisher errors with NoSuchElementException -> 404
+        .onErrorMap(NoSuchElementException.class,
+            e -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Run not found: " + runId, e))
+        .map(st -> Map.of(
+            "runId", st.runId,
+            "status", st.status.name(),
+            "requestedAt", st.requestedAt,
+            "startedAt", st.startedAt,
+            "updatedAt", st.updatedAt,
+            "progress", st.progress(),
+            "datasets", st.perDataset.values()));
   }
 
   @GetMapping("/{runId}/result")

@@ -10,15 +10,23 @@ import org.springframework.context.annotation.Configuration;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.RemovalCause;
 
 import th.go.dxc.platform.search.application.common.cache.port.out.CachePort;
 import th.go.dxc.platform.search.domain.search.model.GlobalSearchResult;
-import th.go.dxc.platform.search.domain.search.model.LocalSearchResult;
+import th.go.dxc.platform.search.domain.search.model.GlobalSearchRun;
 import th.go.dxc.platform.search.domain.search.model.GlobalSearchState;
+import th.go.dxc.platform.search.domain.search.model.LocalSearchResult;
 
 @Configuration
 public class CacheConfig {
+  private static Caffeine<Object, Object> build(CacheProperties.Item p) {
+    Caffeine<Object, Object> c = Caffeine.newBuilder().maximumSize(p.maximumSize());
+    if (p.expireAfterWrite() != null)
+      c = c.expireAfterWrite(p.expireAfterWrite());
+    if (p.expireAfterAccess() != null)
+      c = c.expireAfterAccess(p.expireAfterAccess());
+    return c;
+  }
 
   @Bean
   Cache<String, Object> caffeineCache() {
@@ -31,48 +39,30 @@ public class CacheConfig {
 
   @Bean
   @Qualifier("reportTokenCache")
-  public Cache<String, LocalSearchResult> reportTokenCache() {
-    return Caffeine.newBuilder()
-        .maximumSize(50_000)
-        .expireAfterAccess(Duration.ofMinutes(30)) // token stays alive while being read
-        .removalListener((String k, LocalSearchResult v, RemovalCause c) -> {
-          /* optional cleanup */})
-        .build();
+  public Cache<String, LocalSearchResult> reportTokenCache(CacheProperties props) {
+    return build(props.reportToken()).build();
   }
 
   @Bean
   @Qualifier("globalSearchStatusCache")
-  public Cache<String, GlobalSearchState> globalSearchStatusCache() {
-    return Caffeine.newBuilder()
-        .maximumSize(100_000)
-        .expireAfterWrite(Duration.ofMinutes(20)) // old runs drop out quickly
-        .build();
+  public Cache<String, GlobalSearchState> globalSearchStatusCache(CacheProperties props) {
+    return build(props.globalSearch().status()).build();
   }
 
   @Bean
   @Qualifier("globalSearchResultCache")
-  public Cache<String, GlobalSearchResult> globalSearchResultCache() {
-    return Caffeine.newBuilder()
-        .maximumSize(10_000) // results can be big
-        .expireAfterWrite(Duration.ofMinutes(30))
-        .recordStats() // optional: monitor hit rate
-        .build();
+  public Cache<String, GlobalSearchResult> globalSearchResultCache(CacheProperties props) {
+    return build(props.globalSearch().result()).recordStats().build();
   }
 
   @Bean("globalSearchRunCache")
-  public com.github.benmanes.caffeine.cache.Cache<String, th.go.dxc.platform.search.domain.search.model.GlobalSearchRun> globalSearchRunCache() {
-    return Caffeine.newBuilder()
-        .expireAfterWrite(Duration.ofDays(1)) // or longer if needed
-        .maximumSize(10_000)
-        .build();
+  public Cache<String, GlobalSearchRun> globalSearchRunCache(CacheProperties props) {
+    return build(props.globalSearch().run()).build();
   }
 
   @Bean("userRunIndexCache")
-  public com.github.benmanes.caffeine.cache.Cache<String, Deque<String>> userRunIndexCache() {
-    return Caffeine.newBuilder()
-        .expireAfterWrite(Duration.ofDays(1))
-        .maximumSize(10_000)
-        .build();
+  public Cache<String, Deque<String>> userRunIndexCache(CacheProperties props) {
+    return build(props.globalSearch().userIndex()).build();
   }
 
   @Bean

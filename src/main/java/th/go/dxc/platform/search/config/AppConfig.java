@@ -4,5 +4,5 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties({SearchCacheProperties.class, CatalogProperties.class, CorsProperties.class, SecurityProperties.class,ReportProperties.class})
+@EnableConfigurationProperties({SearchCacheProperties.class,CacheProperties.class, CatalogProperties.class, CorsProperties.class, SecurityProperties.class,ReportProperties.class})
 public class AppConfig {}
