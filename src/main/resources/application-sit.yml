@@ -651,6 +651,106 @@ platform:
               pointer: "nameTHFirstName"
             "last_name":
               pointer: "nameTHLastName"
+      - id: dlt.car-license-new
+        name: ทะเบียนยานพาหนะ
+        description: รายการข้อมูลทะเบียนยานพาหนะ
+        owner-org-id: dlt
+        route:
+          service-id: dxc-qm-dlt-vehicle-license-service
+          path: /api/qm/v2/dlt/vehicle-licenses
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "docNo"
+        domains:
+          "person":
+            "full_name":
+              pointer: "owner1"
+      - id: dlt.driver-license-new
+        name: ใบอนุญาตขับขี่
+        description: รายการข้อมูลใบอนุญาตขับขี่
+        owner-org-id: dlt
+        route:
+          service-id: dxc-qm-dlt-driver-license-service
+          path: /api/qm/dlt/driver-licenses/v2
+          headers:
+            X-User-Nin: "{user.nin}"    # ✅ fixed double-colon
+        mapping:
+          canonical-search-fields:
+            "person.citizen_id": "citizenCardNumber"
+        domains:
+          "person":
+            "citizen_id": 
+              pointer: "citizenCardNumber"
+            "full_name":
+              pointer: "fullName"
+      - id: oncb.narcotic-offender
+        name: ประวัติคดียาเสพติด
+        description: รายการข้อมูลประวัติคดียาเสพติด
+        owner-org-id: oncb
+        route:
+          service-id: dxc-qm-oncb-narcotic-offender-service
+          path: /api/qm/v2/oncb/narcotic-offender
+          headers:
+            X-User-Nin: '{user.nin}'
+          querys:
+            serviceId: '0'
+        mapping:
+          canonical-search-fields:
+            person.citizen_id: 'citizenCardNumber'
+        domains:
+          person:
+            citizen_id:
+              pointer: 'citizenCardNumber'
+            first_name:
+              pointer: 'nameTHFirstName'
+            last_name:
+              pointer: 'nameTHLastName'
+      - id: dop.probationer-narcotics
+        name: ผู้ถูกคุมประพฤติในคดียาเสพติดและผลการเข้าร่วมกิจกรรมแก้ไขฟื้นฟู
+        description: รายการข้อมูลผู้ถูกคุมประพฤติในคดียาเสพติดและผลการเข้าร่วมกิจกรรมแก้ไขฟื้นฟู
+        owner-org-id: dop
+        route:
+          service-id: dxc-qm-dop-probationer-narcotics-service
+          path: /api/v2/dop/probationer-narcotics
+          headers:
+            X-User-Nin: '{user.nin}'
+          querys:
+            serviceId: '0'
+        mapping:
+          canonical-search-fields:
+            person.citizen_id: 'idCardNo'
+        domains:
+          person:
+            citizen_id:
+              pointer: 'citizenCardNumber'
+            first_name:
+              pointer: 'nameTHFirstName'
+            last_name:
+              pointer: 'nameTHLastName'
+      - id: doc.reg-seize
+        name: อายัดตัวผู้ต้องขัง
+        description: รายการข้อมูลอายัดตัวผู้ต้องขัง
+        owner-org-id: doc
+        route:
+          service-id: dxc-qm-doc-reg-seize-service
+          path: /api/v2/doc/reg-seizes
+          headers:
+            X-User-Nin: '{user.nin}'
+          querys:
+            serviceId: '0'
+        mapping:
+          canonical-search-fields:
+            person.citizen_id: 'citizenCardNumber'
+        domains:
+          person:
+            citizen_id:
+              pointer: 'citizenCardNumber'
+            first_name:
+              pointer: 'nameTHFirstName'
+            last_name:
+              pointer: 'nameTHLastName'
+
+
     specialized-reports:
       - id: idb-dop-person-report
         name: รายงานผู้ถูกคุมประพฤติ

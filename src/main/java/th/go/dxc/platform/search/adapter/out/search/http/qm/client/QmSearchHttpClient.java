@@ -177,7 +177,7 @@ public class QmSearchHttpClient {
   private static void ensureCorrelationId(HttpHeaders headers) {
     if (headers == null)
       return;
-    if (!headers.containsKey("X-Request-Id") && !headers.containsKey("X-Correlation-Id")) {
+    if (!headers.containsHeader("X-Request-Id") && !headers.containsHeader("X-Correlation-Id")) {
       headers.add("X-Request-Id", UUID.randomUUID().toString());
     }
   }

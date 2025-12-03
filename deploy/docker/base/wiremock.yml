@@ -1,0 +1,14 @@
+services:
+  wiremock-search-api:
+    image: wiremock/wiremock:3.9.1
+    container_name: wiremock-qm
+    command:
+      - "--verbose"
+      - "--port=8080"
+      - "--global-response-templating"
+    ports:
+      - "18080:8080"   # dev-only exposed port
+    volumes:
+      - ./volumes/wiremock/search-api/mappings:/home/wiremock/mappings:ro
+      - ./volumes/wiremock/search-api/__files:/home/wiremock/__files:ro
+    restart: unless-stopped

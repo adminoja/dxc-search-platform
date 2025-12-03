@@ -42,13 +42,6 @@ public class GlobalSearchService implements SearchGlobalSearchUseCase, GetGlobal
   // cap concurrency so you don’t melt downstreams
   private final int maxConcurrency = 8;
 
-  // @Override
-  // public Mono<String> execute(SearchGlobalSearchUseCase.Input input) {
-  // return startRunNew(input.req(), input.userContext(),
-  // input.invocationContext());
-  // }
-
-  // GlobalSearchService.execute(...)
   @Override
   public Mono<String> execute(SearchGlobalSearchUseCase.Input input) {
     return ReactiveSecurityContextHolder.getContext()
@@ -62,30 +55,7 @@ public class GlobalSearchService implements SearchGlobalSearchUseCase, GetGlobal
     return store.getResult(input.runId());
   }
 
-  // private Mono<String> startRunNew(GlobalSearchRequest req, UserContext user,
-  // InvocationContext invo) {
-  // var dsIds = req.requests().stream().map(r -> r.datasetId().value()).toList();
 
-  // return store.initRun(dsIds)
-  // .doOnSuccess(runId -> {
-  // // Fire-and-forget background pipeline
-  // launchNew(runId, req, user, invo)
-  // // needed only if your store/IO are blocking
-  // .subscribeOn(Schedulers.boundedElastic())
-  // // make sure failures mark the run as FAILED (bridge Mono<Void> properly)
-  // .onErrorResume(ex ->
-  // store.update(runId, st -> {
-  // st.status = GlobalSearchStatus.FAILED;
-  // st.finishedAt = Instant.now();
-  // })
-  // .then(Mono.error(ex))
-  // )
-  // .subscribe(
-  // ignore -> {},
-  // err -> log.error("GlobalSearch background failed runId={}", runId, err)
-  // );
-  // });
-  // }
   private Mono<String> startRunNew(GlobalSearchRequest req,
       UserContext user,
       InvocationContext invo,

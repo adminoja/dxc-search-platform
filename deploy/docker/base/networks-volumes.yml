@@ -1,0 +1,9 @@
+name: dxc-stack
+networks:
+  infra:
+    driver: bridge
+
+volumes:
+  pg_data:
+  minio_data:
+  redis_data:

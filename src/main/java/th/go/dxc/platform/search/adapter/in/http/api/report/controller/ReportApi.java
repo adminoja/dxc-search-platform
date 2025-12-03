@@ -1,6 +1,7 @@
 package th.go.dxc.platform.search.adapter.in.http.api.report.controller;
 
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Pattern;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -32,81 +33,91 @@ import th.go.dxc.platform.search.domain.report.model.ReportToken;
 @RequestMapping("/api/search/report")
 public class ReportApi {
 
-  private final RenderHtmlReportUseCase renderHtml;
-  private final RenderPdfReportUseCase renderPdf;
-  private final ReadReportModelUseCase readReportModel;
-  private final ScopeHasher scopeHasher;
+    private final RenderHtmlReportUseCase renderHtml;
+    private final RenderPdfReportUseCase renderPdf;
+    private final ReadReportModelUseCase readReportModel;
+    private final ScopeHasher scopeHasher;
 
+    /** Mapped model view (uses application port). */
+    @GetMapping(value = "/{token}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<ResponseEntity<ReportModel>> readModel(
+            @PathVariable("token") @NotBlank String token,
+            @AuthenticationPrincipal UserContext user) {
+        return readReportModel.execute(new ReadReportModelUseCase.Input(user, ReportToken.of(token)))
+                .map(out -> ResponseEntity.ok(out.report()))
+                .onErrorResume(IllegalArgumentException.class, e -> Mono.just(ResponseEntity.notFound().build()));
+    }
 
-  
-  /** Mapped model view (uses application port). */
-  @GetMapping(value = "/{token}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public Mono<ResponseEntity<ReportModel>> readModel(
-      @PathVariable("token") @NotBlank String token,
-      @AuthenticationPrincipal UserContext user
-  ) {
-    return readReportModel.execute(new ReadReportModelUseCase.Input(user, ReportToken.of(token)))
-        .map(out -> ResponseEntity.ok(out.report()))
-        .onErrorResume(IllegalArgumentException.class, e -> Mono.just(ResponseEntity.notFound().build()));
-  }
-  @GetMapping(value = "/{token}/html", produces = MediaType.TEXT_HTML_VALUE)
-  public Mono<ResponseEntity<String>> html(@PathVariable String token,
-                                           @AuthenticationPrincipal @NonNull UserContext user) {
-    final String scopeHash = scopeHasher.scopeFor(user.userId(), user.tenantId(), user.realm());
+    private static final Pattern SAFE_TOKEN = Pattern.compile("^[A-Za-z0-9._-]{1,100}$");
 
-    return renderHtml.execute(new RenderHtmlReportUseCase.Input(scopeHash, new ReportToken(token),user))
-        .map(out -> ResponseEntity.ok()
-            .contentType(new MediaType("text", "html", StandardCharsets.UTF_8))
-            .body(out.html()))
-        .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
-  }
+    @GetMapping(value = "/{token}/html", produces = MediaType.TEXT_HTML_VALUE)
+    public Mono<ResponseEntity<String>> html(@PathVariable String token,
+            @AuthenticationPrincipal UserContext user) {
+        if (!SAFE_TOKEN.matcher(token).matches()) {
+            return Mono.error(new IllegalArgumentException("Invalid token"));
+        }
 
-  /**
-   * GET /reports/{token}/pdf
-   * Uses only the report token and the UserContext to generate & stream the PDF.
-   */
-  @GetMapping(path = "/{token}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
-  public Mono<ResponseEntity<byte[]>> pdf(
-      @PathVariable("token") @NotBlank String token,
-      @AuthenticationPrincipal @NonNull UserContext user
-  ) {
-    final String scopeHash = scopeHasher.scopeFor(user.userId(), user.tenantId(), user.realm());
+        final String scopeHash = scopeHasher.scopeFor(user.userId(), user.tenantId(), user.realm());
 
+        return renderHtml.execute(new RenderHtmlReportUseCase.Input(scopeHash, new ReportToken(token), user))
+                .map(out -> ResponseEntity.ok()
+                        .contentType(new MediaType("text", "html", StandardCharsets.UTF_8))
+                        .body(out.html()))
+                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()))
+                .onErrorResume(IllegalArgumentException.class, e -> Mono.just(ResponseEntity.notFound().build()));
+    }
 
-    // Sensible defaults; no extra query params or headers needed.
-    Options options = new Options(
-        true,   // printBackground
-        true,   // preferCssPageSize
-        null,   // landscape
-        null,   // scale
-        "25mm", "20mm", "14mm", "14mm", // margins
-        "1500ms", // waitDelay (gives time for any QR/JS rendering; safe if unused)
-        null      // waitForExpression
-    );
+    /**
+     * GET /reports/{token}/pdf
+     * Uses only the report token and the UserContext to generate & stream the PDF.
+     */
+    @GetMapping(path = "/{token}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public Mono<ResponseEntity<byte[]>> pdf(
+            @PathVariable("token") @NotBlank String token,
+            @AuthenticationPrincipal UserContext user) {
 
-    var input = new RenderPdfReportUseCase.Input(
-        scopeHash,
-        new ReportToken(token),
-        defaultFilename(token),
-        options
-    ,user);
-    log.debug("pdf: input = {}",input);
-    return renderPdf.execute(input)
-        .map(out -> ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_TYPE, out.contentType())
-            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + out.filename() + "\"")
-            .header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-            .body(out.pdfBytes()));
-  }
+        if (!SAFE_TOKEN.matcher(token).matches()) {
+            return Mono.error(new IllegalArgumentException("Invalid report token"));
+        }
 
-  // --- helpers --------------------------------------------------------------
+        final String scopeHash = scopeHasher.scopeFor(user.userId(), user.tenantId(), user.realm());
 
-  private static String defaultFilename(String token) {
-    String base = token == null ? "" : token;
-    // keep only safe chars for Content-Disposition filename
-    base = base.replaceAll("[^A-Za-z0-9._-]", "");
-    if (base.isBlank()) base = "report";
-    if (!base.toLowerCase().endsWith(".pdf")) base = base + ".pdf";
-    return base;
-  }
+        // Sensible defaults; no extra query params or headers needed.
+        Options options = new Options(
+                true, // printBackground
+                true, // preferCssPageSize
+                null, // landscape
+                null, // scale
+                "25mm", "20mm", "14mm", "14mm", // margins
+                "1500ms", // waitDelay (gives time for any QR/JS rendering; safe if unused)
+                null // waitForExpression
+        );
+
+        var input = new RenderPdfReportUseCase.Input(
+                scopeHash,
+                new ReportToken(token),
+                defaultFilename(token),
+                options, user);
+        log.debug("pdf: input = {}", input);
+        return renderPdf.execute(input)
+                .map(out -> ResponseEntity.ok()
+                        .header(HttpHeaders.CONTENT_TYPE, out.contentType())
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + out.filename() + "\"")
+                        .header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+                        .body(out.pdfBytes()))
+                        .onErrorResume(IllegalArgumentException.class, e -> Mono.just(ResponseEntity.notFound().build()));
+    }
+
+    // --- helpers --------------------------------------------------------------
+
+    private static String defaultFilename(String token) {
+        String base = token == null ? "" : token;
+        // keep only safe chars for Content-Disposition filename
+        base = base.replaceAll("[^A-Za-z0-9._-]", "");
+        if (base.isBlank())
+            base = "report";
+        if (!base.toLowerCase().endsWith(".pdf"))
+            base = base + ".pdf";
+        return base;
+    }
 }

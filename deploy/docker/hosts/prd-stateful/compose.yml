@@ -1,0 +1,16 @@
+# PRD Stateful: postgres + minio
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: "4g" }
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: "3g" }

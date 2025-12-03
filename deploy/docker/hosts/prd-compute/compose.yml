@@ -1,0 +1,34 @@
+# PRD Compute: proxy + api + gotenberg + redis
+services:
+  proxy:
+    ports:
+      - "80:80"
+      - "443:443"
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: "256m" }
+
+  api:
+    ports:
+      - "8080:8080"
+    environment:
+      DXC_REDIS_URL: "redis://redis:6379"
+      DXC_GOTENBERG_URL: "http://gotenberg:3000"
+      DXC_POSTGRES_URL: "jdbc:postgresql://${VM2_IP}:5432/${POSTGRES_DB-dxc}"
+      DXC_MINIO_ENDPOINT: "http://${VM2_IP}:9000"
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: "3g" }
+
+  gotenberg:
+    volumes:
+      - /srv/tmp/chrome:/tmp
+      - ../../assets:/assets:ro
+    deploy:
+      resources:
+        limits: { cpus: "4.0", memory: "4g" }
+
+  redis:
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: "1.5g" }

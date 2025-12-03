@@ -1,0 +1,17 @@
+services:
+  api:
+    image: your-registry/dxc-search-platform:1.0.0
+    env_file:
+      - ../env/common.env
+      - ../env/api.env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE-prd}
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD","wget","-qO-","http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [infra]

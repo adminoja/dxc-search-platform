@@ -1,0 +1,13 @@
+services:
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    command: "gotenberg --api-timeout=180s --chromium-disable-javascript=false"
+    environment:
+      LOG_LEVEL: ${GOTENBERG_LOG_LEVEL-info}
+    healthcheck:
+      test: ["CMD","wget","-qO-","http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [infra]

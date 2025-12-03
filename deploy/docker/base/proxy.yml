@@ -1,0 +1,8 @@
+services:
+  proxy:
+    image: caddy:latest
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on: [api]
+    restart: unless-stopped
+    networks: [infra]
