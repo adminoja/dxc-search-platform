@@ -4,8 +4,8 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.NullNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.NullNode;
 
 import th.go.dxc.platform.search.domain.common.value.DomainPageRequest;
 import th.go.dxc.platform.search.domain.common.value.DomainSort;

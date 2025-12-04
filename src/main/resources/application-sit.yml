@@ -25,9 +25,13 @@ management:
 spring:
   main:
     web-application-type: reactive
+  # jackson:
+  #   serialization:
+  #     WRITE_DATES_AS_TIMESTAMPS: false
   jackson:
-    serialization:
-      WRITE_DATES_AS_TIMESTAMPS: false
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false   # or false
 
   # ✅ Resource Server (validate JWT from RH SSO / Keycloak)
   security:

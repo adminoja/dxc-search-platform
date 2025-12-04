@@ -1,6 +1,6 @@
 package th.go.dxc.platform.search.adapter.out.search.http.qm.mapper;
 // adapter/out/qm/mapper/QmResponseMapper.java
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 import th.go.dxc.platform.search.domain.catalog.model.Dataset;
 import th.go.dxc.platform.search.domain.common.value.DomainPageRequest;

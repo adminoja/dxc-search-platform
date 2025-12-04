@@ -1,6 +1,5 @@
 package th.go.dxc.platform.search.adapter.out.search.http.qm.client;
 
-import java.io.IOException;
 import java.net.ConnectException;
 import java.net.UnknownHostException;
 import java.time.Duration;
@@ -21,14 +20,15 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriTemplate;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import reactor.core.publisher.Mono;
 import th.go.dxc.platform.search.domain.catalog.model.Dataset;
 import th.go.dxc.platform.search.domain.common.value.DomainPageRequest;
 import th.go.dxc.platform.search.domain.search.exception.DomainSearchException;
 import th.go.dxc.platform.search.domain.search.model.LocalSearchStatus;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class QmSearchHttpClient {
@@ -152,7 +152,7 @@ public class QmSearchHttpClient {
         .map(body -> {
           try {
             return objectMapper.readTree(body);
-          } catch (IOException e) {
+          } catch (JacksonException e) {
             throw new IllegalStateException(
                 "QM returned invalid JSON for dataset " + ds.id().value(), e);
           }

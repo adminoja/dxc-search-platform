@@ -12,12 +12,6 @@ import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonPointer;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.NullNode;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
@@ -34,6 +28,11 @@ import th.go.dxc.platform.search.domain.search.model.GlobalSearchResult;
 import th.go.dxc.platform.search.domain.search.model.LocalSearchRecord;
 import th.go.dxc.platform.search.domain.search.model.LocalSearchResult;
 import th.go.dxc.platform.search.domain.search.model.SpecializedReportResult;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonPointer;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.NullNode;
 
 @Slf4j
 @Component
@@ -334,7 +333,7 @@ public class GetSpecializedReportResultExecutor
                 if (json != null) {
                         try {
                                 text = mapper.writeValueAsString(json);
-                        } catch (JsonProcessingException e) {
+                        } catch (JacksonException e) {
                                 e.printStackTrace();
                         }
                 }

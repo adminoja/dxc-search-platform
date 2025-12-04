@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 import lombok.AllArgsConstructor;
 import reactor.core.publisher.Mono;

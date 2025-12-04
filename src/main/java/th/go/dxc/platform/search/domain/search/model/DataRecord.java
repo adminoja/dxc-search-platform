@@ -2,8 +2,8 @@ package th.go.dxc.platform.search.domain.search.model;
 
 import java.time.Instant;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.JsonNodeFactory;
 
 public record DataRecord(
         JsonNode data,
