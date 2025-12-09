@@ -1,12 +1,10 @@
 package th.go.dxc.platform.search.adapter.in.http.api.report.controller;
 
 import java.nio.charset.StandardCharsets;
-import java.util.regex.Pattern;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.lang.NonNull;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -48,23 +46,28 @@ public class ReportApi {
                 .onErrorResume(IllegalArgumentException.class, e -> Mono.just(ResponseEntity.notFound().build()));
     }
 
-    private static final Pattern SAFE_TOKEN = Pattern.compile("^[A-Za-z0-9._-]{1,100}$");
-
     @GetMapping(value = "/{token}/html", produces = MediaType.TEXT_HTML_VALUE)
-    public Mono<ResponseEntity<String>> html(@PathVariable String token,
+    public Mono<ResponseEntity<String>> html(
+            @PathVariable String token,
             @AuthenticationPrincipal UserContext user) {
-        if (!SAFE_TOKEN.matcher(token).matches()) {
-            return Mono.error(new IllegalArgumentException("Invalid token"));
+
+        final ReportToken reportToken;
+        try {
+            reportToken = ReportToken.of(token); // validation here
+        } catch (IllegalArgumentException ex) {
+            return Mono.just(ResponseEntity.notFound().build());
         }
 
         final String scopeHash = scopeHasher.scopeFor(user.userId(), user.tenantId(), user.realm());
 
-        return renderHtml.execute(new RenderHtmlReportUseCase.Input(scopeHash, new ReportToken(token), user))
+        return renderHtml.execute(
+                new RenderHtmlReportUseCase.Input(scopeHash, reportToken, user))
                 .map(out -> ResponseEntity.ok()
                         .contentType(new MediaType("text", "html", StandardCharsets.UTF_8))
                         .body(out.html()))
                 .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()))
-                .onErrorResume(IllegalArgumentException.class, e -> Mono.just(ResponseEntity.notFound().build()));
+                .onErrorResume(IllegalArgumentException.class,
+                        e -> Mono.just(ResponseEntity.notFound().build()));
     }
 
     /**
@@ -73,41 +76,41 @@ public class ReportApi {
      */
     @GetMapping(path = "/{token}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     public Mono<ResponseEntity<byte[]>> pdf(
-            @PathVariable("token") @NotBlank String token,
+            @PathVariable("token") String token,
             @AuthenticationPrincipal UserContext user) {
 
-        if (!SAFE_TOKEN.matcher(token).matches()) {
-            return Mono.error(new IllegalArgumentException("Invalid report token"));
+        final ReportToken reportToken;
+        try {
+            reportToken = ReportToken.of(token);
+        } catch (IllegalArgumentException ex) {
+            return Mono.just(ResponseEntity.notFound().build());
         }
 
         final String scopeHash = scopeHasher.scopeFor(user.userId(), user.tenantId(), user.realm());
 
-        // Sensible defaults; no extra query params or headers needed.
         Options options = new Options(
-                true, // printBackground
-                true, // preferCssPageSize
-                null, // landscape
-                null, // scale
-                "25mm", "20mm", "14mm", "14mm", // margins
-                "1500ms", // waitDelay (gives time for any QR/JS rendering; safe if unused)
-                null // waitForExpression
-        );
+                true, true, null, null,
+                "25mm", "20mm", "14mm", "14mm",
+                "1500ms", null);
+
+        String filename = defaultFilename(reportToken.asString());
 
         var input = new RenderPdfReportUseCase.Input(
                 scopeHash,
-                new ReportToken(token),
-                defaultFilename(token),
-                options, user);
-        log.debug("pdf: input = {}", input);
+                reportToken,
+                filename,
+                options,
+                user);
+
         return renderPdf.execute(input)
                 .map(out -> ResponseEntity.ok()
                         .header(HttpHeaders.CONTENT_TYPE, out.contentType())
                         .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + out.filename() + "\"")
                         .header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
                         .body(out.pdfBytes()))
-                        .onErrorResume(IllegalArgumentException.class, e -> Mono.just(ResponseEntity.notFound().build()));
+                .onErrorResume(IllegalArgumentException.class,
+                        e -> Mono.just(ResponseEntity.notFound().build()));
     }
-
     // --- helpers --------------------------------------------------------------
 
     private static String defaultFilename(String token) {
