@@ -8,6 +8,7 @@ import java.time.chrono.ThaiBuddhistChronology;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
@@ -29,6 +30,7 @@ import th.go.dxc.platform.search.domain.common.value.UserContext;
 @Slf4j
 @Service
 public class RenderPdfReportService implements RenderPdfReportUseCase {
+    private static final Pattern SAFE_FILENAME = Pattern.compile("^[A-Za-z0-9._-]{1,100}$");
 
     private final RenderHtmlReportUseCase htmlUseCase;
     private final WebClient webClient;
@@ -47,10 +49,10 @@ public class RenderPdfReportService implements RenderPdfReportUseCase {
                 .build();
 
         // HttpClient http = HttpClient.create()
-        //         .wiretap( // <— full request/response line+headers+body (human readable)
-        //                 "reactor.netty.http.client",
-        //                 LogLevel.trace,
-        //                 AdvancedByteBufFormat.SIMPLE);
+        // .wiretap( // <— full request/response line+headers+body (human readable)
+        // "reactor.netty.http.client",
+        // LogLevel.trace,
+        // AdvancedByteBufFormat.SIMPLE);
 
         this.webClient = WebClient.builder()
                 .baseUrl(props.gotenberg().baseUrl())
@@ -87,7 +89,7 @@ public class RenderPdfReportService implements RenderPdfReportUseCase {
         Objects.requireNonNull(in, "input");
         Objects.requireNonNull(in.scope(), "scope");
         Objects.requireNonNull(in.token(), "token");
-
+        final String filename = safeOutputFilename(in.filename());
         // 1) First get the rendered HTML from your existing use case
         log.trace("1) First get the rendered HTML from your existing use case");
         return htmlUseCase.execute(new RenderHtmlReportUseCase.Input(in.scope(), in.token(), in.user()))
@@ -111,11 +113,10 @@ public class RenderPdfReportService implements RenderPdfReportUseCase {
                     // ---- header.html (from classpath) ----
                     // Resource header = headerWithLogo(in.user());
                     String header = headerWithLogoHtml(in.user());
-                    
+
                     if (
-                        // header.exists()
-                        header !=null && !header.isBlank()
-                        ) {
+                    // header.exists()
+                    header != null && !header.isBlank()) {
                         mb.part("files", header).filename("header.html")
                                 .contentType(MediaType.TEXT_HTML);
                     } else {
@@ -126,9 +127,8 @@ public class RenderPdfReportService implements RenderPdfReportUseCase {
                     // Resource footer = footerBytes();
                     String footer = footerHtml();
                     if (
-                        // footer.exists()
-                        footer!=null && !footer.isBlank()
-                        ) {
+                    // footer.exists()
+                    footer != null && !footer.isBlank()) {
                         mb.part("files", footer).filename("footer.html")
                                 .contentType(MediaType.TEXT_HTML);
                     } else {
@@ -161,8 +161,8 @@ public class RenderPdfReportService implements RenderPdfReportUseCase {
                             mb.part("waitForExpression", o.waitForExpression());
                     }
 
-                    final String filename = ensurePdfSuffix(
-                            in.filename() == null || in.filename().isBlank() ? "report.pdf" : in.filename());
+                    // final String filename = ensurePdfSuffix(
+                    // inFilename == null || inFilename.isBlank() ? "report.pdf" : inFilename);
                     log.trace("Multiplart = {}", mb);
                     // 3) Call Gotenberg
                     log.trace("3) Call Gotenberg");
@@ -234,27 +234,28 @@ public class RenderPdfReportService implements RenderPdfReportUseCase {
 
     private String headerWithLogoHtml(UserContext user) {
         String html = io.readTextSync(props.template().resolve(props.template().header()));
-        log.trace("logo from {} , mime={}",props.template().resolve(props.template().logo().path()),props.template().logo().mime());
+        log.trace("logo from {} , mime={}", props.template().resolve(props.template().logo().path()),
+                props.template().logo().mime());
         String logoB64 = io.dataUriOrEmpty(props.template().resolve(props.template().logo().path()),
                 props.template().logo().mime());
         // replace marker
-        log.trace("logoB64 = {}",left(logoB64,150));
+        log.trace("logoB64 = {}", left(logoB64, 150));
         html = html.replace("{{LOGO_BASE64}}", logoB64);
-        log.trace("html = {}", left(html,800));
+        log.trace("html = {}", left(html, 800));
         // add printed_by, printed_date_time
         html = html.replace("{{PRINTED_BY}}", user == null ? "Anonymous" : user.username());
         html = html.replace("{{PRINTED_DATE_TIME}}", prettyDateTimeBe(Instant.now()));
         return html;
     }
 
-    private String left(String str,Integer count)
-    {
+    private String left(String str, Integer count) {
         String left = "";
-        if(str!=null && !str.isBlank())left = str.substring(0,(count>=str.length()?str.length():count));
+        if (str != null && !str.isBlank())
+            left = str.substring(0, (count >= str.length() ? str.length() : count));
         return left;
     }
 
-    private String footerHtml(){
+    private String footerHtml() {
         String html = io.readTextSync(props.template().resolve(props.template().footer()));
         return html;
     }
@@ -265,4 +266,21 @@ public class RenderPdfReportService implements RenderPdfReportUseCase {
                 Locale.of("th", "TH")).withChronology(ThaiBuddhistChronology.INSTANCE);
         return formatter.format(zdt);
     }
+
+    private static String safeOutputFilename(String raw) {
+        String base = (raw == null || raw.isBlank()) ? "report.pdf" : raw;
+
+        // strip any path separators just in case
+        base = base.replaceAll("[/\\\\]", "");
+
+        if (!SAFE_FILENAME.matcher(base).matches()) {
+            base = "report.pdf";
+        }
+
+        if (!base.toLowerCase().endsWith(".pdf")) {
+            base = base + ".pdf";
+        }
+        return base;
+    }
+
 }

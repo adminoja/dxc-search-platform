@@ -5,9 +5,11 @@ services:
     environment:
       LOG_LEVEL: ${GOTENBERG_LOG_LEVEL-info}
     healthcheck:
-      test: ["CMD","wget","-qO-","http://localhost:3000/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 15s
       timeout: 5s
       retries: 5
+    ports:
+      - "30000:3000"   # <-- add this line
     restart: unless-stopped
     networks: [infra]

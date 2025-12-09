@@ -89,17 +89,29 @@ logging:
     org.springframework.security.oauth2.jwt: WARN
 
 
-# CORS used by your CorsConfig/CorsProperties
-cors:
-  allowed-origins:
-    - https://search-ui.sit.dxc.go.th
-  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
-  allowed-headers: Authorization,Content-Type,X-Requested-With,Accept,Origin,User-Agent
-  allow-credentials: false
-  max-age: 10m
 
 # ================== PLATFORM SETTINGS ==================
 platform:
+  cors:
+    allowed-origins:
+      - https://search-ui.sit.dxc.go.th
+      - http://localhost:8081
+      - http://127.0.0.1:8081 #if you sometimes use the IP
+    allowed-methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+    allowed-headers:
+      - Authorization
+      - Content-Type
+      - X-Requested-With
+      - Accept
+      - Origin
+      - User-Agent
+    allow-credentials: false
+    max-age: 10m
   catalog:
     organizations:
       - id: dop

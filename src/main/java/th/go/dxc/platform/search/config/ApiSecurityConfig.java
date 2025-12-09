@@ -39,33 +39,82 @@ public class ApiSecurityConfig {
       Converter<Jwt, Mono<AbstractAuthenticationToken>> userContextJwtConverter
   ) {
     return http
+        // -----------------------------------------------------------------------------------------
+        // ❗ Your CSRF setting — this is CORRECT for a stateless OAuth2 Resource Server.
+        // Snyk will flag it, but it is safe because no cookies or sessions are used.
+        // We’ll document this in security justification.
+        // CSRF is intentionally disabled for DXCSP because the service is a 
+        // stateless OAuth2 Resource Server, using only Bearer tokens in the Authorization header. 
+        // No cookie-based authentication or HTTP sessions are used. 
+        // Therefore CSRF attacks are not applicable.
+        // -----------------------------------------------------------------------------------------
         .csrf(ServerHttpSecurity.CsrfSpec::disable)
+
+        // -----------------------------------------------------------------------------------------
+        // 🔐 RECOMMENDED UPDATE: explicitly disable other auth mechanisms.
+        // Helps scanners see that only Bearer tokens are accepted.
+        // -----------------------------------------------------------------------------------------
+        .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
+        .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
+        .logout(ServerHttpSecurity.LogoutSpec::disable)
+
         .authorizeExchange(ex -> ex
-            // ===== KEEP YOUR EXISTING MATCHERS HERE (add/adjust as needed) =====
+            // CORS preflight
             .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+            // Static / error
             .pathMatchers(
                 "/",
                 "/index.html",
                 "/favicon.ico",
                 "/error"
             ).permitAll()
+
             // Swagger/OpenAPI
             .pathMatchers(
                 "/v3/api-docs/**",
                 "/swagger-ui.html",
                 "/swagger-ui/**"
             ).permitAll()
-            // Actuator health probes (tighten if you expose more)
+
+            // Actuator health/info
             .pathMatchers(
                 "/actuator/health",
                 "/actuator/health/**",
                 "/actuator/info"
             ).permitAll()
-            // Example: allow a dev-only debug endpoint (remove on prod)
-            // .pathMatchers("/api/debug/**").hasRole("DEV")
-            // ==================================================================
+
+            // everything else must have Authorization: Bearer <token>
             .anyExchange().authenticated()
         )
+
+
+        // .authorizeExchange(ex -> ex
+        //     // ===== KEEP YOUR EXISTING MATCHERS HERE (add/adjust as needed) =====
+        //     .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+        //     .pathMatchers(
+        //         "/",
+        //         "/index.html",
+        //         "/favicon.ico",
+        //         "/error"
+        //     ).permitAll()
+        //     // Swagger/OpenAPI
+        //     .pathMatchers(
+        //         "/v3/api-docs/**",
+        //         "/swagger-ui.html",
+        //         "/swagger-ui/**"
+        //     ).permitAll()
+        //     // Actuator health probes (tighten if you expose more)
+        //     .pathMatchers(
+        //         "/actuator/health",
+        //         "/actuator/health/**",
+        //         "/actuator/info"
+        //     ).permitAll()
+        //     // Example: allow a dev-only debug endpoint (remove on prod)
+        //     // .pathMatchers("/api/debug/**").hasRole("DEV")
+        //     // ==================================================================
+        //     .anyExchange().authenticated()
+        // )
         .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(userContextJwtConverter)))
         .build();
   }

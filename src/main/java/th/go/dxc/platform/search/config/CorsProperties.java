@@ -7,7 +7,7 @@ import java.time.Duration;
 import java.util.List;
 
 @Validated
-@ConfigurationProperties(prefix = "app.cors")
+@ConfigurationProperties(prefix = "platform.cors")
 public record CorsProperties(
     List<String> paths,
     List<String> allowedOrigins,
