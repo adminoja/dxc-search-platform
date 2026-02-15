@@ -7,32 +7,32 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>4.0.0</version>
-		<relativePath /> <!-- lookup parent from repository -->
+		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>th.go.dxc.platform</groupId>
 	<artifactId>dxc-search-platform</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>dxc-search-platform</name>
 	<description>Demo project for Spring Boot</description>
-	<url />
+	<url/>
 	<licenses>
-		<license />
+		<license/>
 	</licenses>
 	<developers>
-		<developer />
+		<developer/>
 	</developers>
 	<scm>
-		<connection />
-		<developerConnection />
-		<tag />
-		<url />
+		<connection/>
+		<developerConnection/>
+		<tag/>
+		<url/>
 	</scm>
 	<properties>
 		<java.version>21</java.version>
 		<spring-cloud.version>2025.1.0</spring-cloud.version>
 		<!-- <springdoc.version>2.8.13</springdoc.version> -->
 		<springdoc.version>3.0.0</springdoc.version>
-		<zxing.version>3.5.3</zxing.version>
+		<zxing.version>3.5.4</zxing.version>
 		<minio.version>8.6.0</minio.version>
 		<pdfbox.version>3.0.5</pdfbox.version>
 		<bouncycastle.version>1.82</bouncycastle.version>
